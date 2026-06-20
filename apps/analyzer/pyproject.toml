@@ -1,0 +1,18 @@
+[project]
+name = "analyzer"
+version = "0.1.0"
+description = "Audio analysis worker: timer beep + shot detection for shooting videos"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.13",
+    "soundfile>=0.12",
+    "psycopg[binary]>=3.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

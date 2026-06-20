@@ -1,22 +1,32 @@
 import { Elysia, t } from "elysia";
 import { openapi } from "@elysiajs/openapi";
+import { config } from "./config";
+import { sql } from "./db/client";
+import { ensureSchema } from "./db/migrate";
 import { Logger } from "./lib/logger";
+import { jobRoutes } from "./routes/jobs";
+import { markerRoutes } from "./routes/markers";
+import { videoRoutes } from "./routes/videos";
+import { ensureMediaDirs } from "./services/storage";
+
+const logger = new Logger();
+
+await ensureMediaDirs();
+await ensureSchema(sql);
+logger.log("media dirs + schema ready");
 
 const app = new Elysia()
-  .decorate("logger", new Logger())
+  .decorate("logger", logger)
   .use(openapi())
   .get(
     "/health",
-    () => ({
-      status: "OK" as const,
-    }),
-    {
-      response: t.Object({
-        status: t.Literal("OK"),
-      }),
-    },
+    () => ({ status: "OK" as const }),
+    { response: t.Object({ status: t.Literal("OK") }) },
   )
-  .listen(3001);
+  .use(videoRoutes)
+  .use(markerRoutes)
+  .use(jobRoutes)
+  .listen(config.port);
 
 export type App = typeof app;
 

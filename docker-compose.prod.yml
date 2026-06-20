@@ -1,20 +1,19 @@
 name: fullstack-template
 services:
-  # database:
-  #   image: mongo:latest
-  #   restart: unless-stopped
-  #   ports:
-  #     - "27017:27017"
-  #   volumes:
-  #     - mongo_db:/data/db
-
-  # database:
-  #   image: postgres:latest
-  #   restart: unless-stopped
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - postgres:/data/db
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-guns}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   api:
     build:
@@ -22,15 +21,33 @@ services:
       dockerfile: apps/api/Dockerfile
       args:
         INFISICAL_CLI_VERSION: ${INFISICAL_CLI_VERSION:-0.43.60}
-    # depends_on:
-    #   - database
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@postgres:5432/guns}
+      MEDIA_DIR: /media
       INFISICAL_MACHINE_CLIENT_ID: ${INFISICAL_MACHINE_CLIENT_ID:-}
       INFISICAL_MACHINE_CLIENT_SECRET: ${INFISICAL_MACHINE_CLIENT_SECRET:-}
       INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
       INFISICAL_SECRET_ENV: ${INFISICAL_SECRET_ENV:-dev}
       INFISICAL_API_URL: ${INFISICAL_API_URL:-}
+    volumes:
+      - media:/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  analyzer:
+    build:
+      context: .
+      dockerfile: apps/analyzer/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@postgres:5432/guns}
+      MEDIA_DIR: /media
+    volumes:
+      - media:/media
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   web:
     build:
@@ -52,5 +69,7 @@ services:
       - api
 
 volumes:
-  database:
+  postgres:
+    driver: local
+  media:
     driver: local

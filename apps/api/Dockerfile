@@ -5,7 +5,8 @@ WORKDIR /app
 # Infisical CLI — pin version: https://github.com/Infisical/cli/releases
 ARG INFISICAL_CLI_VERSION=0.43.60
 ARG TARGETARCH
-RUN apk add --no-cache curl ca-certificates tar \
+# ffmpeg/ffprobe are used at runtime to probe uploaded videos (see services/ffprobe.ts).
+RUN apk add --no-cache curl ca-certificates tar ffmpeg \
   && case "$TARGETARCH" in \
        amd64) INFIS_ARCH=amd64 ;; \
        arm64) INFIS_ARCH=arm64 ;; \
