@@ -1,0 +1,5 @@
+@import "@kdunin/component-library/styles";
+
+/* Scan component library so all its Tailwind classes are generated (Tailwind skips node_modules by default).
+   Use monorepo-root node_modules so Bun hoisted installs and Docker match local dev (apps/web/node_modules may be absent). */
+@source "../../../node_modules/@kdunin/component-library/dist";

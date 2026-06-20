@@ -1,0 +1,5 @@
+interface:
+  display_name: "@kdunin/component-library"
+  short_description: "Builds UI with @kdunin/component-library (shadcn-compatible, Base UI) — styling, forms, composition; uses shadcn MCP/docs for reference only."
+  icon_small: "./assets/shadcn-small.png"
+  icon_large: "./assets/shadcn.png"

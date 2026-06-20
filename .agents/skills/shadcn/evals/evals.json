@@ -1,0 +1,49 @@
+{
+  "skill_name": "shadcn",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Create a settings form with fields for: full name, email address, and notification preferences (email, SMS, push notifications as toggle options). Add validation states for required fields. Import UI from @kdunin/component-library (lucide icons).",
+      "expected_output": "A React component using FieldGroup, Field, ToggleGroup, data-invalid/aria-invalid validation, gap-* spacing, semantic colors, imports from @kdunin/component-library.",
+      "files": [],
+      "expectations": [
+        "Imports primitives from @kdunin/component-library (not @/components/ui paths)",
+        "Uses FieldGroup and Field components for form layout instead of raw div with space-y",
+        "Uses ToggleGroup for the 2–5 option notification mode (not looping Button with manual active state)",
+        "Uses data-invalid on Field and aria-invalid on the input control for validation states",
+        "Uses gap-* (e.g. gap-4, gap-6) instead of space-y-* or space-x-* for spacing",
+        "Uses semantic color tokens (e.g. bg-background, text-muted-foreground, text-destructive) instead of raw colors like bg-red-500",
+        "No manual dark: color overrides"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Create a dialog for editing a user profile: avatar at the top, inputs for name and bio, Save/Cancel with icons. Use @kdunin/component-library and lucide-react. Triggers must use Base UI composition (render prop), not Radix asChild.",
+      "expected_output": "Dialog with DialogTitle, Avatar+AvatarFallback, data-icon on buttons, no icon sizing classes, imports from @kdunin/component-library.",
+      "files": [],
+      "expectations": [
+        "Imports from @kdunin/component-library",
+        "Includes DialogTitle for accessibility (visible or with sr-only class)",
+        "Avatar component includes AvatarFallback",
+        "Icons on buttons use the data-icon attribute (data-icon=\"inline-start\" or data-icon=\"inline-end\")",
+        "No sizing classes on icons inside components (no size-4, w-4, h-4, etc.)",
+        "Uses render (or documented Base API) for custom triggers where applicable, not asChild"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Create a dashboard with 4 stat cards in a grid. Each card: title, large number, percentage change badge, loading skeleton state. Use @kdunin/component-library and lucide icons.",
+      "expected_output": "Full Card composition, Skeleton for loading, Badge for changes, semantic colors, gap-* spacing, package imports.",
+      "files": [],
+      "expectations": [
+        "Imports from @kdunin/component-library",
+        "Uses full Card composition with CardHeader, CardTitle, CardContent (not dumping everything into CardContent)",
+        "Uses Skeleton component for loading placeholders instead of custom animate-pulse divs",
+        "Uses Badge component for percentage change instead of custom styled spans",
+        "Uses semantic color tokens instead of raw color values like bg-green-500 or text-red-600",
+        "Uses gap-* instead of space-y-* or space-x-* for spacing",
+        "Uses size-* when width and height are equal instead of separate w-* h-*"
+      ]
+    }
+  ]
+}

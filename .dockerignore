@@ -1,0 +1,41 @@
+# dependencies (installed in image)
+node_modules
+**/node_modules
+
+# vcs / editor
+.git
+.gitignore
+.cursor
+.vscode
+.idea
+
+# secrets (examples are kept)
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# python
+**/__pycache__
+**/.venv
+**/.venv/**
+
+# build / cache / coverage
+dist
+**/dist
+out
+**/out
+.output
+**/.output
+coverage
+**/.cache
+.eslintcache
+*.tsbuildinfo
+*.tgz
+
+# logs
+logs
+**/*.log
+
+# os
+.DS_Store

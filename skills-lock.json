@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "skills": {
+    "shadcn": {
+      "source": "local: @kdunin/component-library (skill adapted from shadcn/ui)",
+      "sourceType": "custom",
+      "computedHash": "507f011a70e8b3ae242bdc0bb5b39fd91a1d4049a0f3c281991ccf84973d591c",
+      "notes": "Upstream shadcn skill content; project uses packaged UI instead of CLI — see .agents/skills/shadcn/SKILL.md"
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "f98931159fa9c7fed043bcd18a891a46dcf89ababa38df13a4c5b7b30dc0ce07"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "c858d2d9023e73edb4e5504868cb0e36313e58fd56af12ef888b43c5634a3c17"
+    }
+  }
+}

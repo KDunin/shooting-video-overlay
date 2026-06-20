@@ -1,0 +1,56 @@
+name: fullstack-template
+services:
+  # database:
+  #   image: mongo:latest
+  #   restart: unless-stopped
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - mongo_db:/data/db
+
+  # database:
+  #   image: postgres:latest
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres:/data/db
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      args:
+        INFISICAL_CLI_VERSION: ${INFISICAL_CLI_VERSION:-0.43.60}
+    # depends_on:
+    #   - database
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      INFISICAL_MACHINE_CLIENT_ID: ${INFISICAL_MACHINE_CLIENT_ID:-}
+      INFISICAL_MACHINE_CLIENT_SECRET: ${INFISICAL_MACHINE_CLIENT_SECRET:-}
+      INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
+      INFISICAL_SECRET_ENV: ${INFISICAL_SECRET_ENV:-dev}
+      INFISICAL_API_URL: ${INFISICAL_API_URL:-}
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Baked into Nitro `routeRules` proxy at `vite build`; runtime `environment` does not change it.
+        API_URL: http://api:3001
+        INFISICAL_CLI_VERSION: ${INFISICAL_CLI_VERSION:-0.43.60}
+    environment:
+      VITE_BASE_URL: ${SERVICE_URL_WEB} # coolify service url
+      API_URL: http://api:3001
+      INFISICAL_MACHINE_CLIENT_ID: ${INFISICAL_MACHINE_CLIENT_ID:-}
+      INFISICAL_MACHINE_CLIENT_SECRET: ${INFISICAL_MACHINE_CLIENT_SECRET:-}
+      INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
+      INFISICAL_SECRET_ENV: ${INFISICAL_SECRET_ENV:-dev}
+      INFISICAL_API_URL: ${INFISICAL_API_URL:-}
+    depends_on:
+      - api
+
+volumes:
+  database:
+    driver: local

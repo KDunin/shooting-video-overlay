@@ -1,0 +1,23 @@
+---
+description: UI from @kdunin/component-library (shadcn-compatible, Base UI); use shadcn MCP/docs only for reference.
+globs: "*.tsx,*.ts,*.css"
+alwaysApply: false
+---
+
+## Package
+
+- Import UI from **`@kdunin/component-library`** (named exports), not from `@/components/ui/*` and not by copying shadcn source into the app.
+- The package is a **shadcn-compatible wrapper** built on **`@base-ui/react`**. Prefer **Base UI** APIs (`render`, `items` on Select, etc.); ignore Radix-only examples when they conflict. See `.agents/skills/shadcn/rules/base-vs-radix.md`.
+
+## No shadcn CLI for this app
+
+- Do **not** run `shadcn add`, `shadcn init`, or use `components.json` to install components. There is **no** CLI for `@kdunin/component-library`.
+- To learn patterns, use the **shadcn MCP** (search/view/examples) or `bunx shadcn@latest docs <component>` / `view`, then **translate** imports to `@kdunin/component-library` and **base** APIs.
+
+## Styles
+
+- Global styles: import `@kdunin/component-library/styles` from the app CSS (e.g. `src/styles.css`). Follow existing `@source` lines for Tailwind v4 if present.
+
+## Icons
+
+- Use the project’s icon package (e.g. `lucide-react`) consistently with the library’s peer dependency range.

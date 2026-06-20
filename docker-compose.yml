@@ -1,0 +1,58 @@
+name: guns-db
+services:
+  # database:
+  #   image: mongo:latest
+  #   restart: unless-stopped
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - mongo_db:/data/db
+
+  # database:
+  #   image: postgres:latest
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres:/data/db
+  
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    args:
+      NPM_TOKEN: ${NPM_TOKEN:-}
+      INFISICAL_CLI_VERSION: ${INFISICAL_CLI_VERSION:-0.43.60}
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    environment:
+      INFISICAL_MACHINE_CLIENT_ID: ${INFISICAL_MACHINE_CLIENT_ID:-}
+      INFISICAL_MACHINE_CLIENT_SECRET: ${INFISICAL_MACHINE_CLIENT_SECRET:-}
+      INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
+      INFISICAL_SECRET_ENV: ${INFISICAL_SECRET_ENV:-dev}
+      INFISICAL_API_URL: ${INFISICAL_API_URL:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NPM_TOKEN: ${NPM_TOKEN:-}
+        INFISICAL_CLI_VERSION: ${INFISICAL_CLI_VERSION:-0.43.60}
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      INFISICAL_MACHINE_CLIENT_ID: ${INFISICAL_MACHINE_CLIENT_ID:-}
+      INFISICAL_MACHINE_CLIENT_SECRET: ${INFISICAL_MACHINE_CLIENT_SECRET:-}
+      INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
+      INFISICAL_SECRET_ENV: ${INFISICAL_SECRET_ENV:-dev}
+      INFISICAL_API_URL: ${INFISICAL_API_URL:-}
+    depends_on:
+      - api

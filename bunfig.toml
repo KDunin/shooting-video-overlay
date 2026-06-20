@@ -1,0 +1,7 @@
+[install]
+registry = "https://registry.npmjs.org"
+# Monorepo + isolated linker can hang indefinitely (warm/cached installs); see https://github.com/oven-sh/bun/issues/22846
+linker = "hoisted"
+
+[install.scopes]
+"@kdunin" = { token = "$NPM_TOKEN", url = "https://npm.pkg.github.com/" }
