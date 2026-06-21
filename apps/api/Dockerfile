@@ -22,6 +22,7 @@ ENV NPM_TOKEN=${NPM_TOKEN}
 
 COPY . .
 RUN chmod +x /app/infra/docker/entrypoint-infisical.sh \
+  && chmod +x /app/infra/docker/entrypoint-api.sh \
   && bun install --frozen-lockfile
 
 WORKDIR /app/apps/api
@@ -30,4 +31,4 @@ ENV NODE_ENV=production
 EXPOSE 3001
 
 ENTRYPOINT ["/app/infra/docker/entrypoint-infisical.sh"]
-CMD ["bun", "run", "src/index.ts"]
+CMD ["/app/infra/docker/entrypoint-api.sh"]
