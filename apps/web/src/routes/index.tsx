@@ -14,9 +14,12 @@ function Library() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const handleFile = async (file: File) => {
-    const video = await upload.mutateAsync(file);
-    navigate({ to: "/videos/$id", params: { id: video.id } });
+  const handleFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+    const results = await Promise.all(files.map((f) => upload.mutateAsync(f)));
+    if (results.length === 1) {
+      navigate({ to: "/videos/$id", params: { id: results[0].id } });
+    }
   };
 
   return (
@@ -35,26 +38,28 @@ function Library() {
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
-          const file = e.dataTransfer.files[0];
-          if (file) handleFile(file);
+          const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("video/"));
+          handleFiles(files);
         }}
       >
-        <p className="mb-2 text-muted-foreground">Drop a stage video here (MP4, MOV)</p>
+        <p className="mb-2 text-muted-foreground">Drop stage videos here (MP4, MOV)</p>
         <button
           className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           disabled={upload.isPending}
           onClick={() => inputRef.current?.click()}
         >
-          {upload.isPending ? "Uploading…" : "Choose file"}
+          {upload.isPending ? "Uploading…" : "Choose files"}
         </button>
         <input
           ref={inputRef}
           type="file"
           accept="video/*"
+          multiple
           className="hidden"
           onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) handleFile(file);
+            const files = Array.from(e.target.files ?? []);
+            if (files.length) handleFiles(files);
+            e.target.value = "";
           }}
         />
       </div>
