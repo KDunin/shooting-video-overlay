@@ -51,7 +51,7 @@ export function ShotList({ markers, results, selectedId, currentTime, onSelect, 
             No beep detected — scrub to the start signal and press <b>B</b> or click "+ Set here".
           </p>
         ) : (
-          <div>
+          <div className="max-h-32 overflow-y-auto">
             {beeps.map((b) => (
               <div
                 key={b.id}

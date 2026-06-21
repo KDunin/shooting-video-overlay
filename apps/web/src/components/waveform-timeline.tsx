@@ -10,6 +10,8 @@ interface Props {
   onSelect: (id: string | null) => void;
   onSeek: (t: number) => void;
   onNudge: (id: string, tSeconds: number) => void;
+  onNudgeStart?: (id: string, originalTSeconds: number) => void;
+  onNudgeEnd?: (id: string) => void;
   onAdd: (tSeconds: number) => void;
   height?: number;
 }
@@ -31,6 +33,8 @@ export function WaveformTimeline({
   onSelect,
   onSeek,
   onNudge,
+  onNudgeStart,
+  onNudgeEnd,
   onAdd,
   height = 120,
 }: Props) {
@@ -141,6 +145,8 @@ export function WaveformTimeline({
               onSelect={() => onSelect(m.id)}
               xToTime={xToTime}
               onNudge={(t) => onNudge(m.id, t)}
+              onNudgeStart={onNudgeStart ? (originalT) => onNudgeStart(m.id, originalT) : undefined}
+              onNudgeEnd={onNudgeEnd ? () => onNudgeEnd(m.id) : undefined}
             />
           ))}
 
@@ -162,6 +168,8 @@ function MarkerEl({
   onSelect,
   xToTime,
   onNudge,
+  onNudgeStart,
+  onNudgeEnd,
 }: {
   marker: Marker;
   x: number;
@@ -170,6 +178,8 @@ function MarkerEl({
   onSelect: () => void;
   xToTime: (clientX: number) => number;
   onNudge: (t: number) => void;
+  onNudgeStart?: (originalTSeconds: number) => void;
+  onNudgeEnd?: () => void;
 }) {
   const isBeep = marker.kind === "beep";
   const dim = marker.isIgnored;
@@ -178,12 +188,16 @@ function MarkerEl({
   const onPointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
     onSelect();
+    onNudgeStart?.(marker.tSeconds);
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent) => {
     if (!(e.buttons & 1)) return;
     e.stopPropagation();
     onNudge(xToTime(e.clientX));
+  };
+  const onPointerUp = () => {
+    onNudgeEnd?.();
   };
 
   return (
@@ -192,6 +206,7 @@ function MarkerEl({
       style={{ left: x, height }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
       title={`${marker.kind} @ ${marker.tSeconds.toFixed(3)}s${dim ? " (ignored)" : ""}`}
     >
       <div className={`mx-auto h-full w-0.5 ${color} ${dim ? "opacity-40" : ""} ${selected ? "ring-2 ring-white" : ""}`} />

@@ -84,15 +84,17 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body className="font-sans antialiased [overflow-wrap:anywhere]">
+      <body className="h-screen overflow-hidden font-sans antialiased [overflow-wrap:anywhere]">
         <TanStackQueryProvider>
-          <SidebarProvider>
+          <SidebarProvider className="h-screen">
             <AppSidebar variant="inset" />
             <SidebarInset>
               <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
                 <SidebarTrigger className="w-auto px-4" />
               </header>
-              {children}
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+                {children}
+              </div>
             </SidebarInset>
           </SidebarProvider>
           <TanStackDevtools

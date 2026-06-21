@@ -8,6 +8,7 @@ import { VideoOverlay } from "#/components/video-overlay";
 import { VideoPlayer } from "#/components/video-player";
 import { WaveformTimeline } from "#/components/waveform-timeline";
 import { useVideoTime } from "#/hooks/use-video-time";
+import { useUndoHistory } from "#/hooks/use-undo-history";
 import { fmtTime } from "#/lib/format";
 import {
   qk,
@@ -44,6 +45,24 @@ function VideoPage() {
   const [mode, setMode] = useState<"edit" | "review">("edit");
   const [peaks, setPeaks] = useState<Awaited<ReturnType<typeof fetchPeaks>>>(null);
   const triggered = useRef(false);
+
+  const history = useUndoHistory();
+  // Tracks a keyboard-nudge batch so holding arrow key → one undo entry.
+  const nudgeBatch = useRef<{
+    markerId: string;
+    originalTSeconds: number;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  // Tracks waveform drag start position for undo.
+  const waveformDrag = useRef<{ id: string; originalTSeconds: number } | null>(null);
+
+  const commitNudgeBatch = useCallback(() => {
+    if (!nudgeBatch.current) return;
+    clearTimeout(nudgeBatch.current.timer);
+    const { markerId, originalTSeconds } = nudgeBatch.current;
+    nudgeBatch.current = null;
+    history.push(() => updateMarker.mutateAsync({ id: markerId, patch: { tSeconds: originalTSeconds } }));
+  }, [history, updateMarker]);
 
   // Measure the timeline panel height so WaveformTimeline fills it properly.
   const timelinePanelRef = useRef<HTMLDivElement>(null);
@@ -90,12 +109,22 @@ function VideoPage() {
   };
   const selected = markers.find((m) => m.id === selectedId) ?? null;
 
-  // Keyboard shortcuts (edit mode).
+  // Keyboard shortcuts (Ctrl+Z works globally; edit shortcuts are mode-gated).
   useEffect(() => {
-    if (mode !== "edit") return;
     const onKey = (e: KeyboardEvent) => {
       const el = videoRef.current;
       if (!el) return;
+
+      // Ctrl/Cmd+Z — undo last edit action.
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        commitNudgeBatch();
+        history.undo();
+        return;
+      }
+
+      if (mode !== "edit") return;
+
       const step = e.shiftKey ? 0.05 : 0.01;
       switch (e.key) {
         case " ":
@@ -104,34 +133,74 @@ function VideoPage() {
           break;
         case "a":
         case "A":
-          addMarker.mutate({ kind: "shot", tSeconds: el.currentTime });
+          addMarker.mutate(
+            { kind: "shot", tSeconds: el.currentTime },
+            { onSuccess: (created) => history.push(() => deleteMarker.mutateAsync(created.id)) },
+          );
           break;
         case "b":
         case "B":
-          addMarker.mutate({ kind: "beep", tSeconds: el.currentTime });
+          addMarker.mutate(
+            { kind: "beep", tSeconds: el.currentTime },
+            { onSuccess: (created) => history.push(() => deleteMarker.mutateAsync(created.id)) },
+          );
           break;
         case "ArrowLeft":
           if (selected) {
             e.preventDefault();
+            if (!nudgeBatch.current || nudgeBatch.current.markerId !== selected.id) {
+              commitNudgeBatch();
+              nudgeBatch.current = {
+                markerId: selected.id,
+                originalTSeconds: selected.tSeconds,
+                timer: setTimeout(commitNudgeBatch, 800),
+              };
+            } else {
+              clearTimeout(nudgeBatch.current.timer);
+              nudgeBatch.current.timer = setTimeout(commitNudgeBatch, 800);
+            }
             updateMarker.mutate({ id: selected.id, patch: { tSeconds: Math.max(0, selected.tSeconds - step) } });
           }
           break;
         case "ArrowRight":
           if (selected) {
             e.preventDefault();
+            if (!nudgeBatch.current || nudgeBatch.current.markerId !== selected.id) {
+              commitNudgeBatch();
+              nudgeBatch.current = {
+                markerId: selected.id,
+                originalTSeconds: selected.tSeconds,
+                timer: setTimeout(commitNudgeBatch, 800),
+              };
+            } else {
+              clearTimeout(nudgeBatch.current.timer);
+              nudgeBatch.current.timer = setTimeout(commitNudgeBatch, 800);
+            }
             updateMarker.mutate({ id: selected.id, patch: { tSeconds: selected.tSeconds + step } });
           }
           break;
         case "Delete":
         case "Backspace":
           if (selected) {
-            deleteMarker.mutate(selected.id);
+            commitNudgeBatch();
+            const m = selected;
+            deleteMarker.mutate(m.id, {
+              onSuccess: () =>
+                history.push(() => addMarker.mutateAsync({ kind: m.kind, tSeconds: m.tSeconds })),
+            });
             setSelectedId(null);
           }
           break;
         case "i":
         case "I":
-          if (selected) updateMarker.mutate({ id: selected.id, patch: { isIgnored: !selected.isIgnored } });
+          if (selected) {
+            const wasIgnored = selected.isIgnored;
+            const sid = selected.id;
+            updateMarker.mutate(
+              { id: sid, patch: { isIgnored: !wasIgnored } },
+              { onSuccess: () => history.push(() => updateMarker.mutateAsync({ id: sid, patch: { isIgnored: wasIgnored } })) },
+            );
+          }
           break;
         case "[":
         case "]": {
@@ -149,13 +218,13 @@ function VideoPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [mode, selected, results, addMarker, updateMarker, deleteMarker]);
+  }, [mode, selected, results, addMarker, updateMarker, deleteMarker, history, commitNudgeBatch]);
 
   const analyzing = status === "uploaded" || status === "analyzing";
   const showResizable = status === "analyzed" && mode === "edit";
 
   return (
-    <main className="page-wrap flex min-h-0 flex-1 flex-col px-4 pt-4">
+    <main className="page-wrap flex h-full flex-col overflow-hidden px-4 pt-4">
       <div className="mb-3 flex shrink-0 items-center justify-between">
         <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
           ← Library
@@ -208,11 +277,24 @@ function VideoPage() {
                     onSelect={setSelectedId}
                     onSeek={seek}
                     onNudge={(mid, t) => updateMarker.mutate({ id: mid, patch: { tSeconds: t } })}
-                    onAdd={(t) => addMarker.mutate({ kind: "shot", tSeconds: t })}
+                    onNudgeStart={(id, originalTSeconds) => {
+                      waveformDrag.current = { id, originalTSeconds };
+                    }}
+                    onNudgeEnd={(id) => {
+                      if (waveformDrag.current?.id === id) {
+                        const { originalTSeconds } = waveformDrag.current;
+                        waveformDrag.current = null;
+                        history.push(() => updateMarker.mutateAsync({ id, patch: { tSeconds: originalTSeconds } }));
+                      }
+                    }}
+                    onAdd={(t) => addMarker.mutate(
+                      { kind: "shot", tSeconds: t },
+                      { onSuccess: (created) => history.push(() => deleteMarker.mutateAsync(created.id)) },
+                    )}
                     height={timelineH}
                   />
                   <p className="mt-2 shrink-0 text-xs text-muted-foreground">
-                    Shortcuts: <b>space</b> play · <b>A</b> add shot · <b>B</b> set timer · <b>←/→</b> nudge · <b>I</b> ignore · <b>Del</b> remove · <b>[ ]</b> prev/next
+                    Shortcuts: <b>space</b> play · <b>A</b> add shot · <b>B</b> set timer · <b>←/→</b> nudge · <b>I</b> ignore · <b>Del</b> remove · <b>[ ]</b> prev/next · <b>Ctrl+Z</b> undo
                   </p>
                 </div>
               </ResizablePanel>
@@ -256,12 +338,26 @@ function VideoPage() {
                 currentTime={time}
                 onSelect={setSelectedId}
                 onSeek={seek}
-                onToggleIgnore={(m) => updateMarker.mutate({ id: m.id, patch: { isIgnored: !m.isIgnored } })}
+                onToggleIgnore={(m) => {
+                  const wasIgnored = m.isIgnored;
+                  updateMarker.mutate(
+                    { id: m.id, patch: { isIgnored: !wasIgnored } },
+                    { onSuccess: () => history.push(() => updateMarker.mutateAsync({ id: m.id, patch: { isIgnored: wasIgnored } })) },
+                  );
+                }}
                 onDelete={(mid) => {
-                  deleteMarker.mutate(mid);
+                  const m = markers.find((x) => x.id === mid);
+                  deleteMarker.mutate(mid, {
+                    onSuccess: () => {
+                      if (m) history.push(() => addMarker.mutateAsync({ kind: m.kind, tSeconds: m.tSeconds }));
+                    },
+                  });
                   if (mid === selectedId) setSelectedId(null);
                 }}
-                onAddBeep={(t) => addMarker.mutate({ kind: "beep", tSeconds: t })}
+                onAddBeep={(t) => addMarker.mutate(
+                  { kind: "beep", tSeconds: t },
+                  { onSuccess: (created) => history.push(() => deleteMarker.mutateAsync(created.id)) },
+                )}
               />
             ) : (
               <ReviewStats results={results} />
