@@ -156,7 +156,7 @@ export function WaveformTimeline({
 
       <div
         ref={scrollRef}
-        className="relative overflow-x-auto rounded-md border bg-card"
+        className="relative overflow-x-auto overflow-y-hidden rounded-md border bg-card"
         style={{ height }}
         onClick={(e) => {
           if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.bg) onSeek(xToTime(e.clientX));
