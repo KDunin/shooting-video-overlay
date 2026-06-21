@@ -177,7 +177,7 @@ function VideoPage() {
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
         <div className="flex min-h-0 flex-col">
           {showResizable ? (
-            <ResizablePanelGroup direction="vertical" className="flex-1">
+            <ResizablePanelGroup orientation="vertical" className="flex-1" style={{ minHeight: 400 }}>
               <ResizablePanel defaultSize={68} minSize={20}>
                 <div className="relative h-full overflow-hidden rounded-lg bg-black">
                   {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
