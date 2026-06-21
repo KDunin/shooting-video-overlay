@@ -1,3 +1,5 @@
+import { createReadStream } from "node:fs";
+import { Readable } from "node:stream";
 import { Elysia, t } from "elysia";
 import { desc, eq } from "drizzle-orm";
 import { computeResults } from "shared";
@@ -93,21 +95,25 @@ export const videoRoutes = new Elysia({ name: "videos" })
       // drop the 206 status on the range slice path.
       const base = { "accept-ranges": "bytes", "content-type": type };
 
-      if (!range) {
-        return new Response(file, {
-          headers: { ...base, "content-length": String(size) },
-        });
-      }
-
-      const [startStr, endStr] = range.replace("bytes=", "").split("-");
+      // Parse requested range (default to the full file).
+      const [startStr, endStr] = (range ?? "bytes=0-").replace("bytes=", "").split("-");
       const start = Number(startStr);
       const end = endStr ? Number(endStr) : size - 1;
-      return new Response(file.slice(start, end + 1), {
-        status: 206,
+      const chunkSize = end - start + 1;
+
+      // createReadStream with explicit start/end is the reliable way to serve
+      // a byte slice — BunFile.slice() does not honour the offset correctly
+      // when serialised as a Response body, causing playback to stall once the
+      // browser's initial buffer is exhausted.
+      const nodeStream = createReadStream(row.storagePath, { start, end });
+      const body = Readable.toWeb(nodeStream) as ReadableStream;
+
+      return new Response(body, {
+        status: range ? 206 : 200,
         headers: {
           ...base,
-          "content-range": `bytes ${start}-${end}/${size}`,
-          "content-length": String(end - start + 1),
+          "content-length": String(chunkSize),
+          ...(range ? { "content-range": `bytes ${start}-${end}/${size}` } : {}),
         },
       });
     },
