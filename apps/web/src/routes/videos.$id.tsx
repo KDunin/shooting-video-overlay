@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Marker, MarkerKind } from "shared";
 import { computeResults } from "shared/results";
 import { ShotList } from "#/components/shot-list";
 import { SummaryCard } from "#/components/summary-card";
@@ -10,28 +11,28 @@ import { WaveformTimeline } from "#/components/waveform-timeline";
 import { useVideoTime } from "#/hooks/use-video-time";
 import { useUndoHistory } from "#/hooks/use-undo-history";
 import { fmtTime } from "#/lib/format";
-import {
-  qk,
-  useAddMarker,
-  useAnalyze,
-  useDeleteMarker,
-  useMarkers,
-  useUpdateMarker,
-  useVideo,
-} from "#/lib/queries";
-import { fetchPeaks, mediaUrls } from "#/lib/videos-api";
+import { qk, useAnalyze, useMarkers, useVideo } from "#/lib/queries";
+import { fetchPeaks, mediaUrls, videosApi } from "#/lib/videos-api";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@kdunin/component-library";
 
 export const Route = createFileRoute("/videos/$id")({ component: VideoPage });
+
+const DRAFT_KEY = (id: string) => `draft:markers:${id}`;
+
+function loadDraft(id: string): Marker[] | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY(id));
+    return raw ? (JSON.parse(raw) as Marker[]) : null;
+  } catch {
+    return null;
+  }
+}
 
 function VideoPage() {
   const { id } = Route.useParams();
   const video = useVideo(id);
   const markersQ = useMarkers(id);
   const analyze = useAnalyze(id);
-  const addMarker = useAddMarker(id);
-  const updateMarker = useUpdateMarker(id);
-  const deleteMarker = useDeleteMarker(id);
 
   const qc = useQueryClient();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -46,32 +47,128 @@ function VideoPage() {
   const [peaks, setPeaks] = useState<Awaited<ReturnType<typeof fetchPeaks>>>(null);
   const triggered = useRef(false);
 
+  // --- Draft marker state (edits stay local until Save is pressed) ----------
+  const [draftMarkers, setDraftMarkers] = useState<Marker[] | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Initialize draft from session storage, then fall back to server data.
+  useEffect(() => {
+    if (!markersQ.data || draftMarkers !== null) return;
+    const stored = loadDraft(id);
+    setDraftMarkers(stored ?? markersQ.data);
+  }, [markersQ.data, draftMarkers, id]);
+
+  // Persist draft to session storage on every change.
+  useEffect(() => {
+    if (draftMarkers !== null) {
+      sessionStorage.setItem(DRAFT_KEY(id), JSON.stringify(draftMarkers));
+    }
+  }, [draftMarkers, id]);
+
+  // Low-level draft helpers — always keep sorted by time.
+  const addDraft = useCallback(
+    (kind: MarkerKind, tSeconds: number): Marker => {
+      const m: Marker = {
+        id: crypto.randomUUID(),
+        videoId: id,
+        kind,
+        tSeconds,
+        confidence: null,
+        source: "manual",
+        isIgnored: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setDraftMarkers((prev) => [...(prev ?? []), m].sort((a, b) => a.tSeconds - b.tSeconds));
+      return m;
+    },
+    [id],
+  );
+
+  const updateDraft = useCallback((markerId: string, patch: Partial<Marker>) => {
+    setDraftMarkers((prev) =>
+      (prev ?? [])
+        .map((m) => (m.id === markerId ? { ...m, ...patch } : m))
+        .sort((a, b) => a.tSeconds - b.tSeconds),
+    );
+  }, []);
+
+  const deleteDraft = useCallback((markerId: string) => {
+    setDraftMarkers((prev) => (prev ?? []).filter((m) => m.id !== markerId));
+  }, []);
+
+  const markers = draftMarkers ?? markersQ.data ?? [];
+  const results = useMemo(() => computeResults(markers), [markers]);
+
+  // --- Undo history ----------------------------------------------------------
   const history = useUndoHistory();
-  // Tracks a keyboard-nudge batch so holding arrow key → one undo entry.
+  // Snapshot the current draft — used to create undo entries.
+  const snap = useCallback(() => [...(draftMarkers ?? [])], [draftMarkers]);
+
+  // Keyboard-nudge batching: hold arrow key → one undo entry.
   const nudgeBatch = useRef<{
     markerId: string;
-    originalTSeconds: number;
+    prevSnap: Marker[];
     timer: ReturnType<typeof setTimeout>;
   } | null>(null);
-  // Tracks waveform drag start position for undo.
-  const waveformDrag = useRef<{ id: string; originalTSeconds: number } | null>(null);
+
+  // Waveform drag: capture snapshot on pointer-down, commit undo on pointer-up.
+  const waveformDrag = useRef<{ id: string; prevSnap: Marker[] } | null>(null);
 
   const commitNudgeBatch = useCallback(() => {
     if (!nudgeBatch.current) return;
     clearTimeout(nudgeBatch.current.timer);
-    const { markerId, originalTSeconds } = nudgeBatch.current;
+    const { prevSnap } = nudgeBatch.current;
     nudgeBatch.current = null;
-    history.push(() => updateMarker.mutateAsync({ id: markerId, patch: { tSeconds: originalTSeconds } }));
-  }, [history, updateMarker]);
+    history.push(() => setDraftMarkers(prevSnap));
+  }, [history]);
 
-  // Measure the timeline panel height so WaveformTimeline fills it properly.
+  // --- Save changes to DB ----------------------------------------------------
+  const hasChanges = useMemo(() => {
+    if (!draftMarkers || !markersQ.data) return false;
+    const server = markersQ.data;
+    if (draftMarkers.length !== server.length) return true;
+    return draftMarkers.some((dm) => {
+      const sm = server.find((s) => s.id === dm.id);
+      return !sm || dm.tSeconds !== sm.tSeconds || dm.isIgnored !== sm.isIgnored;
+    });
+  }, [draftMarkers, markersQ.data]);
+
+  const saveChanges = useCallback(async () => {
+    if (!draftMarkers || !markersQ.data || isSaving) return;
+    setIsSaving(true);
+    try {
+      const server = markersQ.data;
+      const draft = draftMarkers;
+      const deleted = server.filter((sm) => !draft.find((dm) => dm.id === sm.id));
+      const added = draft.filter((dm) => !server.find((sm) => sm.id === dm.id));
+      const updated = draft.filter((dm) => {
+        const sm = server.find((s) => s.id === dm.id);
+        return sm && (sm.tSeconds !== dm.tSeconds || sm.isIgnored !== dm.isIgnored);
+      });
+      await Promise.all([
+        ...deleted.map((m) => videosApi.deleteMarker(m.id)),
+        ...updated.map((m) => videosApi.updateMarker(m.id, { tSeconds: m.tSeconds, isIgnored: m.isIgnored })),
+        ...added.map((m) => videosApi.addMarker(id, { kind: m.kind, tSeconds: m.tSeconds })),
+      ]);
+      sessionStorage.removeItem(DRAFT_KEY(id));
+      history.clear();
+      setDraftMarkers(null); // re-initialize from fresh server data
+      await qc.invalidateQueries({ queryKey: qk.markers(id) });
+    } catch (err) {
+      console.error("Failed to save marker edits", err);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [draftMarkers, markersQ.data, isSaving, id, history, qc]);
+
+  // --- Status / polling ------------------------------------------------------
   const timelinePanelRef = useRef<HTMLDivElement>(null);
   const [timelineH, setTimelineH] = useState(120);
   useEffect(() => {
     const el = timelinePanelRef.current;
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
-      // subtract ~28px for the shortcuts line below the canvas
       setTimelineH(Math.max(60, entry.contentRect.height - 28));
     });
     ro.observe(el);
@@ -80,16 +177,17 @@ function VideoPage() {
 
   const status = video.data?.status;
 
-  // When polling detects analysis is done, refresh markers (they were empty on mount).
+  // When re-analysis completes, reset draft so fresh server markers load in.
   const prevStatus = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (status === "analyzed" && prevStatus.current !== "analyzed") {
+      sessionStorage.removeItem(DRAFT_KEY(id));
+      history.clear();
+      setDraftMarkers(null);
       qc.invalidateQueries({ queryKey: qk.markers(id) });
     }
     prevStatus.current = status;
-  }, [status, id, qc]);
-  const markers = markersQ.data ?? [];
-  const results = useMemo(() => computeResults(markers), [markers]);
+  }, [status, id, qc, history]);
 
   // Kick off analysis automatically for a freshly uploaded video.
   useEffect(() => {
@@ -109,13 +207,13 @@ function VideoPage() {
   };
   const selected = markers.find((m) => m.id === selectedId) ?? null;
 
-  // Keyboard shortcuts (Ctrl+Z works globally; edit shortcuts are mode-gated).
+  // --- Keyboard shortcuts ----------------------------------------------------
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = videoRef.current;
       if (!el) return;
 
-      // Ctrl/Cmd+Z — undo last edit action.
+      // Ctrl/Cmd+Z — undo last edit.
       if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
         commitNudgeBatch();
@@ -131,20 +229,23 @@ function VideoPage() {
           e.preventDefault();
           el.paused ? el.play() : el.pause();
           break;
+
         case "a":
-        case "A":
-          addMarker.mutate(
-            { kind: "shot", tSeconds: el.currentTime },
-            { onSuccess: (created) => history.push(() => deleteMarker.mutateAsync(created.id)) },
-          );
+        case "A": {
+          const prev = snap();
+          addDraft("shot", el.currentTime);
+          history.push(() => setDraftMarkers(prev));
           break;
+        }
+
         case "b":
-        case "B":
-          addMarker.mutate(
-            { kind: "beep", tSeconds: el.currentTime },
-            { onSuccess: (created) => history.push(() => deleteMarker.mutateAsync(created.id)) },
-          );
+        case "B": {
+          const prev = snap();
+          addDraft("beep", el.currentTime);
+          history.push(() => setDraftMarkers(prev));
           break;
+        }
+
         case "ArrowLeft":
           if (selected) {
             e.preventDefault();
@@ -152,16 +253,17 @@ function VideoPage() {
               commitNudgeBatch();
               nudgeBatch.current = {
                 markerId: selected.id,
-                originalTSeconds: selected.tSeconds,
+                prevSnap: snap(),
                 timer: setTimeout(commitNudgeBatch, 800),
               };
             } else {
               clearTimeout(nudgeBatch.current.timer);
               nudgeBatch.current.timer = setTimeout(commitNudgeBatch, 800);
             }
-            updateMarker.mutate({ id: selected.id, patch: { tSeconds: Math.max(0, selected.tSeconds - step) } });
+            updateDraft(selected.id, { tSeconds: Math.max(0, selected.tSeconds - step) });
           }
           break;
+
         case "ArrowRight":
           if (selected) {
             e.preventDefault();
@@ -169,45 +271,46 @@ function VideoPage() {
               commitNudgeBatch();
               nudgeBatch.current = {
                 markerId: selected.id,
-                originalTSeconds: selected.tSeconds,
+                prevSnap: snap(),
                 timer: setTimeout(commitNudgeBatch, 800),
               };
             } else {
               clearTimeout(nudgeBatch.current.timer);
               nudgeBatch.current.timer = setTimeout(commitNudgeBatch, 800);
             }
-            updateMarker.mutate({ id: selected.id, patch: { tSeconds: selected.tSeconds + step } });
+            updateDraft(selected.id, { tSeconds: selected.tSeconds + step });
           }
           break;
+
         case "Delete":
         case "Backspace":
           if (selected) {
             commitNudgeBatch();
-            const m = selected;
-            deleteMarker.mutate(m.id, {
-              onSuccess: () =>
-                history.push(() => addMarker.mutateAsync({ kind: m.kind, tSeconds: m.tSeconds })),
-            });
+            const prev = snap();
+            deleteDraft(selected.id);
+            history.push(() => setDraftMarkers(prev));
             setSelectedId(null);
           }
           break;
+
         case "i":
         case "I":
           if (selected) {
-            const wasIgnored = selected.isIgnored;
-            const sid = selected.id;
-            updateMarker.mutate(
-              { id: sid, patch: { isIgnored: !wasIgnored } },
-              { onSuccess: () => history.push(() => updateMarker.mutateAsync({ id: sid, patch: { isIgnored: wasIgnored } })) },
-            );
+            const prev = snap();
+            updateDraft(selected.id, { isIgnored: !selected.isIgnored });
+            history.push(() => setDraftMarkers(prev));
           }
           break;
+
         case "[":
         case "]": {
           const shots = results.shots;
           if (!shots.length) break;
           const cur = shots.findIndex((s) => s.tSeconds > el.currentTime);
-          const next = e.key === "]" ? shots[cur === -1 ? shots.length - 1 : cur] : shots[Math.max(0, (cur === -1 ? shots.length : cur) - 2)];
+          const next =
+            e.key === "]"
+              ? shots[cur === -1 ? shots.length - 1 : cur]
+              : shots[Math.max(0, (cur === -1 ? shots.length : cur) - 2)];
           if (next) {
             seek(next.tSeconds);
             setSelectedId(next.id);
@@ -218,7 +321,7 @@ function VideoPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [mode, selected, results, addMarker, updateMarker, deleteMarker, history, commitNudgeBatch]);
+  }, [mode, selected, results, history, commitNudgeBatch, snap, addDraft, updateDraft, deleteDraft]);
 
   const analyzing = status === "uploaded" || status === "analyzing";
   const showResizable = status === "analyzed" && mode === "edit";
@@ -250,6 +353,15 @@ function VideoPage() {
           >
             {analyzing ? "Analyzing…" : "Re-run detection"}
           </button>
+          {hasChanges && (
+            <button
+              className="rounded-md bg-emerald-600 px-3 py-1 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              disabled={isSaving}
+              onClick={saveChanges}
+            >
+              {isSaving ? "Saving…" : "Save changes"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -276,21 +388,22 @@ function VideoPage() {
                     currentTime={time}
                     onSelect={setSelectedId}
                     onSeek={seek}
-                    onNudge={(mid, t) => updateMarker.mutate({ id: mid, patch: { tSeconds: t } })}
-                    onNudgeStart={(id, originalTSeconds) => {
-                      waveformDrag.current = { id, originalTSeconds };
+                    onNudge={(mid, t) => updateDraft(mid, { tSeconds: t })}
+                    onNudgeStart={(dragId) => {
+                      waveformDrag.current = { id: dragId, prevSnap: snap() };
                     }}
-                    onNudgeEnd={(id) => {
-                      if (waveformDrag.current?.id === id) {
-                        const { originalTSeconds } = waveformDrag.current;
+                    onNudgeEnd={(dragId) => {
+                      if (waveformDrag.current?.id === dragId) {
+                        const { prevSnap } = waveformDrag.current;
                         waveformDrag.current = null;
-                        history.push(() => updateMarker.mutateAsync({ id, patch: { tSeconds: originalTSeconds } }));
+                        history.push(() => setDraftMarkers(prevSnap));
                       }
                     }}
-                    onAdd={(t) => addMarker.mutate(
-                      { kind: "shot", tSeconds: t },
-                      { onSuccess: (created) => history.push(() => deleteMarker.mutateAsync(created.id)) },
-                    )}
+                    onAdd={(t) => {
+                      const prev = snap();
+                      addDraft("shot", t);
+                      history.push(() => setDraftMarkers(prev));
+                    }}
                     height={timelineH}
                   />
                   <p className="mt-2 shrink-0 text-xs text-muted-foreground">
@@ -339,25 +452,21 @@ function VideoPage() {
                 onSelect={setSelectedId}
                 onSeek={seek}
                 onToggleIgnore={(m) => {
-                  const wasIgnored = m.isIgnored;
-                  updateMarker.mutate(
-                    { id: m.id, patch: { isIgnored: !wasIgnored } },
-                    { onSuccess: () => history.push(() => updateMarker.mutateAsync({ id: m.id, patch: { isIgnored: wasIgnored } })) },
-                  );
+                  const prev = snap();
+                  updateDraft(m.id, { isIgnored: !m.isIgnored });
+                  history.push(() => setDraftMarkers(prev));
                 }}
                 onDelete={(mid) => {
-                  const m = markers.find((x) => x.id === mid);
-                  deleteMarker.mutate(mid, {
-                    onSuccess: () => {
-                      if (m) history.push(() => addMarker.mutateAsync({ kind: m.kind, tSeconds: m.tSeconds }));
-                    },
-                  });
+                  const prev = snap();
+                  deleteDraft(mid);
+                  history.push(() => setDraftMarkers(prev));
                   if (mid === selectedId) setSelectedId(null);
                 }}
-                onAddBeep={(t) => addMarker.mutate(
-                  { kind: "beep", tSeconds: t },
-                  { onSuccess: (created) => history.push(() => deleteMarker.mutateAsync(created.id)) },
-                )}
+                onAddBeep={(t) => {
+                  const prev = snap();
+                  addDraft("beep", t);
+                  history.push(() => setDraftMarkers(prev));
+                }}
               />
             ) : (
               <ReviewStats results={results} />
