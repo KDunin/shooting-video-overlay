@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { computeResults } from "shared/results";
 import { ShotList } from "#/components/shot-list";
 import { SummaryCard } from "#/components/summary-card";
@@ -33,7 +33,12 @@ function VideoPage() {
 
   const qc = useQueryClient();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { time, duration } = useVideoTime(videoRef);
+  const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
+  const videoCallbackRef = useCallback((el: HTMLVideoElement | null) => {
+    (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+    setVideoEl(el);
+  }, []);
+  const { time, duration } = useVideoTime(videoEl);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<"edit" | "review">("edit");
   const [peaks, setPeaks] = useState<Awaited<ReturnType<typeof fetchPeaks>>>(null);
@@ -181,7 +186,7 @@ function VideoPage() {
               <ResizablePanel defaultSize={68} minSize={20}>
                 <div className="relative h-full overflow-hidden rounded-lg bg-black">
                   {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                  <video ref={videoRef} src={mediaUrls.stream(id)} controls className="h-full w-full object-contain" />
+                  <video ref={videoCallbackRef} src={mediaUrls.stream(id)} controls className="h-full w-full object-contain" />
                   <VideoOverlay results={results} currentTime={time} showHistory={false} />
                 </div>
               </ResizablePanel>
@@ -210,7 +215,7 @@ function VideoPage() {
             <div className="flex flex-col gap-3 pb-8">
               <div className="relative max-h-[60vh] overflow-hidden rounded-lg bg-black">
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                <video ref={videoRef} src={mediaUrls.stream(id)} controls className="w-full" />
+                <video ref={videoCallbackRef} src={mediaUrls.stream(id)} controls className="w-full" />
                 {status === "analyzed" && (
                   <VideoOverlay results={results} currentTime={time} showHistory={mode === "review"} />
                 )}

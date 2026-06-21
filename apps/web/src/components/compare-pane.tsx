@@ -9,16 +9,17 @@ import { mediaUrls } from "#/lib/videos-api";
 
 interface VideoProps {
   videoId: string | null;
-  videoRef: React.RefObject<HTMLVideoElement | null>;
+  videoRef: React.Ref<HTMLVideoElement>;
   currentTime: number;
   onResults?: (r: StageResults | null) => void;
 }
 
 interface TimelineProps {
   videoId: string | null;
-  videoRef: React.RefObject<HTMLVideoElement | null>;
+  videoRef: React.Ref<HTMLVideoElement>;
   currentTime: number;
   height: number;
+  onSeek: (t: number) => void;
 }
 
 export function ComparePaneVideo({ videoId, videoRef, currentTime, onResults }: VideoProps) {
@@ -32,9 +33,9 @@ export function ComparePaneVideo({ videoId, videoRef, currentTime, onResults }: 
   return <VideoContent videoId={videoId} videoRef={videoRef} currentTime={currentTime} onResults={onResults} />;
 }
 
-export function ComparePaneTimeline({ videoId, videoRef, currentTime, height }: TimelineProps) {
+export function ComparePaneTimeline({ videoId, videoRef, currentTime, height, onSeek }: TimelineProps) {
   if (!videoId) return null;
-  return <TimelineContent videoId={videoId} videoRef={videoRef} currentTime={currentTime} height={height} />;
+  return <TimelineContent videoId={videoId} videoRef={videoRef} currentTime={currentTime} height={height} onSeek={onSeek} />;
 }
 
 function VideoContent({ videoId, videoRef, currentTime, onResults }: VideoProps & { videoId: string }) {
@@ -67,7 +68,7 @@ function VideoContent({ videoId, videoRef, currentTime, onResults }: VideoProps 
   );
 }
 
-function TimelineContent({ videoId, videoRef, currentTime, height }: TimelineProps & { videoId: string }) {
+function TimelineContent({ videoId, videoRef: _, currentTime, height, onSeek }: TimelineProps & { videoId: string }) {
   const video = useVideo(videoId);
   const markersQ = useMarkers(videoId);
   const peaksQ = usePeaks(videoId, video.data?.hasPeaks);
@@ -86,9 +87,7 @@ function TimelineContent({ videoId, videoRef, currentTime, height }: TimelinePro
         selectedId={null}
         currentTime={currentTime}
         onSelect={() => {}}
-        onSeek={(t) => {
-          if (videoRef.current) videoRef.current.currentTime = Math.max(0, t);
-        }}
+        onSeek={onSeek}
         onNudge={() => {}}
         onAdd={() => {}}
         height={height}

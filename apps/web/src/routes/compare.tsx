@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { StageResults } from "shared/results";
 import { ComparePaneVideo, ComparePaneTimeline } from "#/components/compare-pane";
 import { useVideoTime } from "#/hooks/use-video-time";
@@ -29,8 +29,18 @@ function ComparePage() {
 
   const refA = useRef<HTMLVideoElement>(null);
   const refB = useRef<HTMLVideoElement>(null);
-  const timeA = useVideoTime(refA);
-  const timeB = useVideoTime(refB);
+  const [elA, setElA] = useState<HTMLVideoElement | null>(null);
+  const [elB, setElB] = useState<HTMLVideoElement | null>(null);
+  const callbackA = useCallback((el: HTMLVideoElement | null) => {
+    (refA as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+    setElA(el);
+  }, []);
+  const callbackB = useCallback((el: HTMLVideoElement | null) => {
+    (refB as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+    setElB(el);
+  }, []);
+  const timeA = useVideoTime(elA);
+  const timeB = useVideoTime(elB);
 
   const [synced, setSynced] = useState(true);
   const [resultsA, setResultsA] = useState<StageResults | null>(null);
@@ -152,13 +162,13 @@ function ComparePage() {
           <div className="grid h-full grid-cols-2 gap-4 pb-2">
             <ComparePaneVideo
               videoId={a ?? null}
-              videoRef={refA}
+              videoRef={callbackA}
               currentTime={timeA.time}
               onResults={setResultsA}
             />
             <ComparePaneVideo
               videoId={b ?? null}
-              videoRef={refB}
+              videoRef={callbackB}
               currentTime={timeB.time}
               onResults={setResultsB}
             />
@@ -169,15 +179,17 @@ function ComparePage() {
           <div ref={timelinePanelRef} className="grid h-full grid-cols-2 gap-4 pt-2">
             <ComparePaneTimeline
               videoId={a ?? null}
-              videoRef={refA}
+              videoRef={callbackA}
               currentTime={timeA.time}
               height={timelineH}
+              onSeek={(t) => { if (refA.current) refA.current.currentTime = Math.max(0, t); }}
             />
             <ComparePaneTimeline
               videoId={b ?? null}
-              videoRef={refB}
+              videoRef={callbackB}
               currentTime={timeB.time}
               height={timelineH}
+              onSeek={(t) => { if (refB.current) refB.current.currentTime = Math.max(0, t); }}
             />
           </div>
         </ResizablePanel>

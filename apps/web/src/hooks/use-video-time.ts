@@ -4,15 +4,18 @@ import { useEffect, useRef, useState } from "react";
  * Track a <video> element's currentTime smoothly via requestAnimationFrame (the native
  * `timeupdate` event only fires ~4x/sec, too coarse for the overlay). Also exposes
  * play state and duration.
+ *
+ * Accepts the element directly (not a ref) so the effect re-runs whenever the element
+ * is swapped out — e.g. when the layout switches between resizable and simple panels.
  */
-export function useVideoTime(videoRef: React.RefObject<HTMLVideoElement | null>) {
+export function useVideoTime(video: HTMLVideoElement | null) {
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const raf = useRef<number>(0);
 
   useEffect(() => {
-    const el = videoRef.current;
+    const el = video;
     if (!el) return;
 
     const loop = () => {
@@ -44,7 +47,7 @@ export function useVideoTime(videoRef: React.RefObject<HTMLVideoElement | null>)
       el.removeEventListener("loadedmetadata", onMeta);
       el.removeEventListener("seeked", onSeek);
     };
-  }, [videoRef]);
+  }, [video]);
 
   return { time, playing, duration };
 }
