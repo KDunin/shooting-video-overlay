@@ -30,6 +30,9 @@ function Library() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkEditing, setBulkEditing] = useState(false);
 
   const handleFiles = async (files: File[]) => {
     if (files.length === 0) return;
@@ -40,6 +43,35 @@ function Library() {
   };
 
   const allVideos = videos.data ?? [];
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setBulkEditing(false);
+  };
+
+  const handleBulkDelete = () => {
+    for (const id of selectedIds) del.mutate(id);
+    exitSelectMode();
+  };
+
+  const handleBulkUpdate = (patch: Partial<Pick<Video, "matchName" | "shooterName" | "stageName">>) => {
+    for (const id of selectedIds) update.mutate({ id, patch });
+    exitSelectMode();
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(allVideos.map((v) => v.id)));
+  };
 
   let groups: { key: string; videos: Video[] }[];
   if (groupBy === "none") {
@@ -106,20 +138,70 @@ function Library() {
       {videos.isLoading && <p className="text-muted-foreground">Loading…</p>}
 
       {allVideos.length > 0 && (
-        <div className="mb-4 flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Group by:</span>
-          {(["none", "match", "shooter", "stage"] as GroupBy[]).map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setGroupBy(opt)}
-              className={`rounded-md px-3 py-1 text-sm capitalize ${
-                groupBy === opt ? "bg-emerald-600 text-white" : "border hover:bg-accent"
-              }`}
-            >
-              {opt === "none" ? "None" : opt.charAt(0).toUpperCase() + opt.slice(1)}
-            </button>
-          ))}
+        <div className="mb-4 flex items-center gap-2 flex-wrap">
+          {!selectMode && (
+            <>
+              <span className="text-sm text-muted-foreground">Group by:</span>
+              {(["none", "match", "shooter", "stage"] as GroupBy[]).map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setGroupBy(opt)}
+                  className={`rounded-md px-3 py-1 text-sm capitalize ${
+                    groupBy === opt ? "bg-emerald-600 text-white" : "border hover:bg-accent"
+                  }`}
+                >
+                  {opt === "none" ? "None" : opt.charAt(0).toUpperCase() + opt.slice(1)}
+                </button>
+              ))}
+              <div className="ml-auto">
+                <button
+                  onClick={() => setSelectMode(true)}
+                  className="rounded-md border px-3 py-1 text-sm hover:bg-accent"
+                >
+                  Select
+                </button>
+              </div>
+            </>
+          )}
+
+          {selectMode && (
+            <>
+              <span className="text-sm font-medium">{selectedIds.size} selected</span>
+              <button onClick={selectAll} className="rounded-md border px-3 py-1 text-sm hover:bg-accent">
+                Select all
+              </button>
+              <div className="ml-auto flex items-center gap-2">
+                {selectedIds.size > 0 && (
+                  <>
+                    <button
+                      onClick={() => setBulkEditing(true)}
+                      className="rounded-md bg-emerald-600 px-3 py-1 text-sm text-white hover:bg-emerald-700"
+                    >
+                      Edit tags
+                    </button>
+                    <button
+                      onClick={handleBulkDelete}
+                      className="rounded-md border border-red-500 px-3 py-1 text-sm text-red-500 hover:bg-red-500/10"
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
+                <button onClick={exitSelectMode} className="rounded-md border px-3 py-1 text-sm hover:bg-accent">
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
         </div>
+      )}
+
+      {bulkEditing && selectedIds.size > 0 && (
+        <BulkEditPanel
+          count={selectedIds.size}
+          onSave={handleBulkUpdate}
+          onCancel={() => setBulkEditing(false)}
+        />
       )}
 
       {groups.map(({ key, videos: groupVideos }) => (
@@ -138,12 +220,63 @@ function Library() {
                 onOpen={() => navigate({ to: "/videos/$id", params: { id: v.id } })}
                 onDelete={() => del.mutate(v.id)}
                 onUpdate={(patch) => update.mutate({ id: v.id, patch })}
+                selectMode={selectMode}
+                selected={selectedIds.has(v.id)}
+                onToggleSelect={() => toggleSelect(v.id)}
               />
             ))}
           </div>
         </div>
       ))}
     </main>
+  );
+}
+
+function BulkEditPanel({
+  count,
+  onSave,
+  onCancel,
+}: {
+  count: number;
+  onSave: (patch: Partial<Pick<Video, "matchName" | "shooterName" | "stageName">>) => void;
+  onCancel: () => void;
+}) {
+  const [match, setMatch] = useState("");
+  const [shooter, setShooter] = useState("");
+  const [stage, setStage] = useState("");
+
+  const handleSave = () => {
+    const patch: Partial<Pick<Video, "matchName" | "shooterName" | "stageName">> = {};
+    if (match.trim() !== "") patch.matchName = match.trim();
+    if (shooter.trim() !== "") patch.shooterName = shooter.trim();
+    if (stage.trim() !== "") patch.stageName = stage.trim();
+    onSave(patch);
+  };
+
+  return (
+    <div className="mb-4 rounded-lg border bg-card p-4">
+      <p className="mb-3 text-sm font-medium">
+        Edit tags for {count} video{count !== 1 ? "s" : ""}{" "}
+        <span className="font-normal text-muted-foreground">(leave blank to keep existing value)</span>
+      </p>
+      <div className="space-y-2">
+        <TagField label="Match" value={match} onChange={setMatch} />
+        <TagField label="Shooter" value={shooter} onChange={setShooter} />
+        <TagField label="Stage" value={stage} onChange={setStage} />
+      </div>
+      <div className="mt-3 flex gap-2">
+        <button
+          className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm text-white hover:bg-emerald-700 disabled:opacity-50"
+          onClick={handleSave}
+          disabled={match.trim() === "" && shooter.trim() === "" && stage.trim() === ""}
+        >
+          Apply to {count} video{count !== 1 ? "s" : ""}
+        </button>
+        <button className="rounded-md border px-3 py-1.5 text-sm hover:bg-accent" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -159,11 +292,17 @@ function VideoCard({
   onOpen,
   onDelete,
   onUpdate,
+  selectMode,
+  selected,
+  onToggleSelect,
 }: {
   video: Video;
   onOpen: () => void;
   onDelete: () => void;
   onUpdate: (patch: Partial<Pick<Video, "matchName" | "shooterName" | "stageName">>) => void;
+  selectMode: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [match, setMatch] = useState(video.matchName ?? "");
@@ -193,61 +332,94 @@ function VideoCard({
   ].filter(Boolean) as { label: string; value: string }[];
 
   return (
-    <div className="group flex flex-col rounded-lg border bg-card p-3 hover:border-emerald-500/50">
-      <button className="flex-1 text-left" onClick={onOpen}>
-        <div className="mb-1 flex items-center gap-2">
-          <span className={`h-2 w-2 shrink-0 rounded-full ${statusColor[video.status]}`} />
-          <span className="truncate font-medium">{video.originalName}</span>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {video.status} · {fmtTime(video.durationS)} {video.width ? `· ${video.width}×${video.height}` : ""}
-        </div>
-        {tags.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {tags.map((t) => (
-              <span key={t.label} className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                {t.label}: {t.value}
-              </span>
-            ))}
+    <div
+      className={`group flex flex-col rounded-lg border bg-card p-3 transition-colors ${
+        selectMode
+          ? selected
+            ? "border-emerald-500 bg-emerald-500/5 cursor-pointer"
+            : "cursor-pointer hover:border-emerald-500/50"
+          : "hover:border-emerald-500/50"
+      }`}
+      onClick={selectMode ? onToggleSelect : undefined}
+    >
+      <div className="flex items-start gap-2">
+        {selectMode && (
+          <div className="mt-0.5 shrink-0">
+            <div
+              className={`h-4 w-4 rounded border-2 flex items-center justify-center ${
+                selected ? "border-emerald-500 bg-emerald-500" : "border-muted-foreground"
+              }`}
+            >
+              {selected && (
+                <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 10 10" fill="none">
+                  <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </div>
           </div>
         )}
-      </button>
 
-      {editing ? (
-        <div className="mt-3 space-y-2 border-t pt-3">
-          <TagField label="Match" value={match} onChange={setMatch} />
-          <TagField label="Shooter" value={shooter} onChange={setShooter} />
-          <TagField label="Stage" value={stage} onChange={setStage} />
-          <div className="flex gap-2 pt-1">
+        <button
+          className="flex-1 text-left"
+          onClick={selectMode ? undefined : onOpen}
+          tabIndex={selectMode ? -1 : undefined}
+        >
+          <div className="mb-1 flex items-center gap-2">
+            <span className={`h-2 w-2 shrink-0 rounded-full ${statusColor[video.status]}`} />
+            <span className="truncate font-medium">{video.originalName}</span>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {video.status} · {fmtTime(video.durationS)} {video.width ? `· ${video.width}×${video.height}` : ""}
+          </div>
+          {tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {tags.map((t) => (
+                <span key={t.label} className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                  {t.label}: {t.value}
+                </span>
+              ))}
+            </div>
+          )}
+        </button>
+      </div>
+
+      {!selectMode && (
+        editing ? (
+          <div className="mt-3 space-y-2 border-t pt-3">
+            <TagField label="Match" value={match} onChange={setMatch} />
+            <TagField label="Shooter" value={shooter} onChange={setShooter} />
+            <TagField label="Stage" value={stage} onChange={setStage} />
+            <div className="flex gap-2 pt-1">
+              <button
+                className="rounded-md bg-emerald-600 px-3 py-1 text-xs text-white hover:bg-emerald-700"
+                onClick={handleSave}
+              >
+                Save
+              </button>
+              <button className="rounded-md border px-3 py-1 text-xs hover:bg-accent" onClick={handleCancel}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-2 flex justify-between">
             <button
-              className="rounded-md bg-emerald-600 px-3 py-1 text-xs text-white hover:bg-emerald-700"
-              onClick={handleSave}
+              className="text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditing(true);
+              }}
             >
-              Save
+              Edit tags
             </button>
-            <button className="rounded-md border px-3 py-1 text-xs hover:bg-accent" onClick={handleCancel}>
-              Cancel
+            <button
+              className="text-xs text-red-500 opacity-0 transition-opacity group-hover:opacity-100"
+              onClick={onDelete}
+            >
+              Delete
             </button>
           </div>
-        </div>
-      ) : (
-        <div className="mt-2 flex justify-between">
-          <button
-            className="text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditing(true);
-            }}
-          >
-            Edit tags
-          </button>
-          <button
-            className="text-xs text-red-500 opacity-0 transition-opacity group-hover:opacity-100"
-            onClick={onDelete}
-          >
-            Delete
-          </button>
-        </div>
+        )
       )}
     </div>
   );
