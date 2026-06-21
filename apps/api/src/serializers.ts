@@ -13,6 +13,9 @@ export const toVideo = (r: VideoRow): Video => ({
   height: r.height,
   sampleRate: r.sampleRate,
   hasPeaks: r.peaksPath != null,
+  matchName: r.matchName ?? null,
+  shooterName: r.shooterName ?? null,
+  stageName: r.stageName ?? null,
   createdAt: iso(r.createdAt),
   updatedAt: iso(r.updatedAt),
 });

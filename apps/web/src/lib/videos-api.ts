@@ -1,4 +1,4 @@
-import type { AnalyzeInput, CreateMarkerInput, Marker, UpdateMarkerInput, Video, WaveformPeaks } from "shared";
+import type { AnalyzeInput, CreateMarkerInput, Marker, UpdateMarkerInput, UpdateVideoInput, Video, WaveformPeaks } from "shared";
 import { api } from "./api";
 
 /** Unwrap an Eden treaty response, throwing on transport/HTTP error. */
@@ -13,6 +13,9 @@ export const videosApi = {
   get: async (id: string): Promise<Video> => unwrap(await api.videos({ id }).get()),
 
   upload: async (file: File): Promise<Video> => unwrap(await api.videos.post({ file })),
+
+  update: async (id: string, patch: UpdateVideoInput): Promise<Video> =>
+    unwrap(await api.videos({ id }).patch(patch)),
 
   remove: async (id: string): Promise<void> => {
     await api.videos({ id }).delete();

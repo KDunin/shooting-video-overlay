@@ -68,6 +68,31 @@ export const videoRoutes = new Elysia({ name: "videos" })
     { params: t.Object({ id: t.String() }) },
   )
 
+  .patch(
+    "/videos/:id",
+    async ({ params, body, set }) => {
+      const patch: Partial<typeof videos.$inferInsert> = {};
+      if ("matchName" in body) patch.matchName = body.matchName ?? null;
+      if ("shooterName" in body) patch.shooterName = body.shooterName ?? null;
+      if ("stageName" in body) patch.stageName = body.stageName ?? null;
+      const [updated] = await db
+        .update(videos)
+        .set({ ...patch, updatedAt: new Date() })
+        .where(eq(videos.id, params.id))
+        .returning();
+      if (!updated) return ((set.status = 404), { error: "Not found" });
+      return toVideo(updated);
+    },
+    {
+      params: t.Object({ id: t.String() }),
+      body: t.Object({
+        matchName: t.Optional(t.Nullable(t.String())),
+        shooterName: t.Optional(t.Nullable(t.String())),
+        stageName: t.Optional(t.Nullable(t.String())),
+      }),
+    },
+  )
+
   .delete(
     "/videos/:id",
     async ({ params }) => {

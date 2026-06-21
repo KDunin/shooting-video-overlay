@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AnalyzeInput, CreateMarkerInput, Marker, UpdateMarkerInput } from "shared";
+import type { AnalyzeInput, CreateMarkerInput, Marker, UpdateMarkerInput, UpdateVideoInput } from "shared";
 import { fetchPeaks, videosApi } from "./videos-api";
 
 export const qk = {
@@ -29,6 +29,17 @@ export function useUploadVideo() {
   return useMutation({
     mutationFn: (file: File) => videosApi.upload(file),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.videos }),
+  });
+}
+
+export function useUpdateVideo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: UpdateVideoInput }) => videosApi.update(id, patch),
+    onSuccess: (updated) => {
+      qc.setQueryData(qk.video(updated.id), updated);
+      qc.invalidateQueries({ queryKey: qk.videos });
+    },
   });
 }
 

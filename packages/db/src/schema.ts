@@ -24,6 +24,9 @@ export const videos = pgTable("videos", {
   height: integer("height"),
   sampleRate: integer("sample_rate"),
   status: text("status").notNull().default("uploaded"),
+  matchName: text("match_name"),
+  shooterName: text("shooter_name"),
+  stageName: text("stage_name"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
