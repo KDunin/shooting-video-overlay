@@ -33,8 +33,11 @@ export function WaveformTimeline({
   onAdd,
   height = 120,
 }: Props) {
+  const outerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // viewW tracks the outer wrapper width, not the scroll container, so it is
+  // immune to the scroll container expanding due to wide inner content.
   const [viewW, setViewW] = useState(800);
   const [zoom, setZoom] = useState(1);
   const dur = peaks?.durationS || duration || 1;
@@ -45,57 +48,68 @@ export function WaveformTimeline({
 
   const pendingScrollRef = useRef<{ timeAtCursor: number; cursorOffsetX: number } | null>(null);
 
-  // Draw only the visible slice of peaks — canvas stays viewport-wide (sticky),
-  // avoiding giant canvas allocations that blank out above ~16 k px.
-  const drawCanvas = useCallback(() => {
+  // Keep draw inputs in a ref so the scroll handler can call paint without
+  // going stale between React renders.
+  const paintStateRef = useRef({ peaks, pps, viewW, height });
+  paintStateRef.current = { peaks, pps, viewW, height };
+
+  const paintCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const el = scrollRef.current;
     if (!canvas || !el) return;
+    const { peaks: p, pps: ppx, viewW: vw, height: h } = paintStateRef.current;
     const sl = el.scrollLeft;
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = viewW * dpr;
-    canvas.height = height * dpr;
+
+    // Only resize the backing store when dimensions actually change.
+    const needW = Math.round(vw * dpr);
+    const needH = Math.round(h * dpr);
+    if (canvas.width !== needW || canvas.height !== needH) {
+      canvas.width = needW;
+      canvas.height = needH;
+    }
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, viewW, height);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, vw, h);
 
-    const mid = height / 2;
+    const mid = h / 2;
     ctx.strokeStyle = "rgba(120,140,170,0.65)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    if (peaks && peaks.peaks.length) {
-      const n = peaks.peaks.length;
+    if (p && p.peaks.length) {
+      const n = p.peaks.length;
       for (let i = 0; i < n; i++) {
-        const t = i / peaks.pointsPerSecond;
-        const x = Math.round(t * pps - sl) + 0.5;
-        if (x < -1 || x > viewW + 1) continue;
-        const h = peaks.peaks[i]! * (mid - 2);
-        ctx.moveTo(x, mid - h);
-        ctx.lineTo(x, mid + h);
+        const t = i / p.pointsPerSecond;
+        const x = Math.round(t * ppx - sl) + 0.5;
+        if (x < -1 || x > vw + 1) continue;
+        const amp = p.peaks[i]! * (mid - 2);
+        ctx.moveTo(x, mid - amp);
+        ctx.lineTo(x, mid + amp);
       }
     }
     ctx.stroke();
     ctx.strokeStyle = "rgba(120,140,170,0.2)";
     ctx.beginPath();
     ctx.moveTo(0, mid);
-    ctx.lineTo(viewW, mid);
+    ctx.lineTo(vw, mid);
     ctx.stroke();
-  }, [peaks, viewW, height, pps]);
+  }, []);
 
-  // Redraw when data, zoom, or viewport size change.
+  // Repaint whenever data, zoom or size change.
   useEffect(() => {
-    drawCanvas();
-  }, [drawCanvas]);
+    paintCanvas();
+  }, [paintCanvas, peaks, pps, viewW, height]);
 
-  // Redraw on scroll (pan).
+  // Repaint on scroll (pan changes the visible slice).
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const onScroll = () => drawCanvas();
+    const onScroll = () => paintCanvas();
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
-  }, [drawCanvas]);
+  }, [paintCanvas]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -138,8 +152,10 @@ export function WaveformTimeline({
     [pps, dur],
   );
 
+  // Observe the OUTER wrapper for width — it is never affected by inner scroll
+  // content width, so viewW stays stable regardless of zoom level.
   useLayoutEffect(() => {
-    const el = scrollRef.current;
+    const el = outerRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => setViewW(el.clientWidth));
     ro.observe(el);
@@ -148,7 +164,7 @@ export function WaveformTimeline({
   }, []);
 
   return (
-    <div className="flex min-w-0 flex-col overflow-hidden select-none">
+    <div ref={outerRef} className="flex min-w-0 flex-col overflow-hidden select-none">
       <div className="mb-2 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
         <button className="shrink-0 rounded border px-2 py-0.5" onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z / 1.5))}>
           −
@@ -160,21 +176,25 @@ export function WaveformTimeline({
         <span className="ml-2 truncate">scroll to pan · ctrl+scroll to zoom · double-click to add shot · drag marker to nudge</span>
       </div>
 
+      {/*
+        The scroll container is explicitly width-clamped so its clientWidth never
+        feeds back into pps/totalPx calculations (viewW comes from outerRef instead).
+        The canvas is sticky so it never contributes to the scrollable width.
+      */}
       <div
         ref={scrollRef}
-        className="relative overflow-x-auto overflow-y-hidden rounded-md border bg-card"
+        className="relative w-full overflow-x-auto overflow-y-hidden rounded-md border bg-card"
         style={{ height }}
         onClick={(e) => {
           if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.bg) onSeek(xToTime(e.clientX));
         }}
         onDoubleClick={(e) => onAdd(xToTime(e.clientX))}
       >
-        {/* Spacer div creates the scrollable width; canvas is sticky so it never exceeds viewW. */}
         <div className="relative" style={{ width: totalPx, height }}>
           <canvas
             ref={canvasRef}
             data-bg="1"
-            className="absolute top-0 left-0"
+            className="absolute top-0 left-0 pointer-events-none"
             style={{ position: "sticky", left: 0, width: viewW, height }}
           />
 
