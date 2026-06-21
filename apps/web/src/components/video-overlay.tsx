@@ -17,8 +17,10 @@ export function VideoOverlay({ results, currentTime, showHistory = false }: Prop
   const state = useMemo(() => {
     const fired = results.shots.filter((s) => s.tSeconds <= currentTime + 1e-6);
     const last = fired[fired.length - 1];
-    const stageClock =
+    const rawClock =
       results.anchorT != null ? Math.max(0, currentTime - results.anchorT) : currentTime;
+    const stageClock =
+      results.totalTime != null ? Math.min(rawClock, results.totalTime) : rawClock;
     return { fired, last, stageClock };
   }, [results, currentTime]);
 
