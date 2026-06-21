@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { computeResults } from "shared/results";
 import { ShotList } from "#/components/shot-list";
@@ -8,6 +9,7 @@ import { WaveformTimeline } from "#/components/waveform-timeline";
 import { useVideoTime } from "#/hooks/use-video-time";
 import { fmtTime } from "#/lib/format";
 import {
+  qk,
   useAddMarker,
   useAnalyze,
   useDeleteMarker,
@@ -28,6 +30,7 @@ function VideoPage() {
   const updateMarker = useUpdateMarker(id);
   const deleteMarker = useDeleteMarker(id);
 
+  const qc = useQueryClient();
   const videoRef = useRef<HTMLVideoElement>(null);
   const { time, duration } = useVideoTime(videoRef);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -36,6 +39,15 @@ function VideoPage() {
   const triggered = useRef(false);
 
   const status = video.data?.status;
+
+  // When polling detects analysis is done, refresh markers (they were empty on mount).
+  const prevStatus = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (status === "analyzed" && prevStatus.current !== "analyzed") {
+      qc.invalidateQueries({ queryKey: qk.markers(id) });
+    }
+    prevStatus.current = status;
+  }, [status, id, qc]);
   const markers = markersQ.data ?? [];
   const results = useMemo(() => computeResults(markers), [markers]);
 
