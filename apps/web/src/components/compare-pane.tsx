@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { computeResults } from "shared/results";
 import type { StageResults } from "shared/results";
 import { VideoOverlay } from "#/components/video-overlay";
+import { VideoPlayer } from "#/components/video-player";
 import { WaveformTimeline } from "#/components/waveform-timeline";
 import { fmtTime } from "#/lib/format";
 import { useMarkers, usePeaks, useVideo } from "#/lib/queries";
@@ -52,11 +53,12 @@ function VideoContent({ videoId, videoRef, currentTime, onResults }: VideoProps 
 
   return (
     <div className="flex h-full flex-col">
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg bg-black">
-        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <video ref={videoRef} src={mediaUrls.stream(videoId)} controls className="h-full w-full object-contain" />
-        {analyzed && <VideoOverlay results={results} currentTime={currentTime} showHistory={false} />}
-      </div>
+      <VideoPlayer
+        ref={videoRef}
+        src={mediaUrls.stream(videoId)}
+        variant="fill"
+        overlay={analyzed ? <VideoOverlay results={results} currentTime={currentTime} showHistory={false} /> : undefined}
+      />
       {!analyzed && (
         <div className="mt-2 shrink-0 rounded-md border border-blue-500/40 bg-blue-500/5 p-2 text-sm">
           {status === "error"

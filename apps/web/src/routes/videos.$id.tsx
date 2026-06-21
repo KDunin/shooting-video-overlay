@@ -5,6 +5,7 @@ import { computeResults } from "shared/results";
 import { ShotList } from "#/components/shot-list";
 import { SummaryCard } from "#/components/summary-card";
 import { VideoOverlay } from "#/components/video-overlay";
+import { VideoPlayer } from "#/components/video-player";
 import { WaveformTimeline } from "#/components/waveform-timeline";
 import { useVideoTime } from "#/hooks/use-video-time";
 import { fmtTime } from "#/lib/format";
@@ -184,11 +185,12 @@ function VideoPage() {
           {showResizable ? (
             <ResizablePanelGroup orientation="vertical" className="flex-1" style={{ minHeight: 400 }}>
               <ResizablePanel defaultSize={68} minSize={20}>
-                <div className="relative h-full overflow-hidden rounded-lg bg-black">
-                  {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                  <video ref={videoCallbackRef} src={mediaUrls.stream(id)} controls className="h-full w-full object-contain" />
-                  <VideoOverlay results={results} currentTime={time} showHistory={false} />
-                </div>
+                <VideoPlayer
+                  ref={videoCallbackRef}
+                  src={mediaUrls.stream(id)}
+                  variant="fill"
+                  overlay={<VideoOverlay results={results} currentTime={time} showHistory={false} />}
+                />
               </ResizablePanel>
               <ResizableHandle withHandle />
               <ResizablePanel defaultSize={32} minSize={15}>
@@ -213,13 +215,16 @@ function VideoPage() {
             </ResizablePanelGroup>
           ) : (
             <div className="flex flex-col gap-3 pb-8">
-              <div className="relative max-h-[60vh] overflow-hidden rounded-lg bg-black">
-                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                <video ref={videoCallbackRef} src={mediaUrls.stream(id)} controls className="w-full" />
-                {status === "analyzed" && (
-                  <VideoOverlay results={results} currentTime={time} showHistory={mode === "review"} />
-                )}
-              </div>
+              <VideoPlayer
+                ref={videoCallbackRef}
+                src={mediaUrls.stream(id)}
+                variant="fluid"
+                overlay={
+                  status === "analyzed" ? (
+                    <VideoOverlay results={results} currentTime={time} showHistory={mode === "review"} />
+                  ) : undefined
+                }
+              />
 
               {analyzing && (
                 <div className="rounded-md border border-blue-500/40 bg-blue-500/5 p-3 text-sm">
