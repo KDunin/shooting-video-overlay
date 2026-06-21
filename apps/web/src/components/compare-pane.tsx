@@ -49,9 +49,9 @@ function PaneContent({ videoId, videoRef, currentTime, onResults }: Props & { vi
 
   return (
     <div>
-      <div className="relative max-h-[60vh] overflow-hidden rounded-lg bg-black">
+      <div className="relative overflow-hidden rounded-lg bg-black">
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <video ref={videoRef} src={mediaUrls.stream(videoId)} controls className="w-full" />
+        <video ref={videoRef} src={mediaUrls.stream(videoId)} controls className="max-h-[60vh] w-full object-contain" />
         {analyzed && <VideoOverlay results={results} currentTime={currentTime} showHistory={false} />}
       </div>
 
