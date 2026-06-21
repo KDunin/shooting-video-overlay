@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { computeResults } from "shared/results";
 import { ShotList } from "#/components/shot-list";
 import { SummaryCard } from "#/components/summary-card";
@@ -37,6 +37,35 @@ function VideoPage() {
   const [mode, setMode] = useState<"edit" | "review">("edit");
   const [peaks, setPeaks] = useState<Awaited<ReturnType<typeof fetchPeaks>>>(null);
   const triggered = useRef(false);
+
+  const MIN_VIDEO_HEIGHT = 150;
+  const MAX_VIDEO_HEIGHT = typeof window !== "undefined" ? window.innerHeight - 160 : 800;
+  const [videoHeight, setVideoHeight] = useState(() =>
+    typeof window !== "undefined" ? Math.min(520, Math.max(MIN_VIDEO_HEIGHT, window.innerHeight - 320)) : 400,
+  );
+  const isDragging = useRef(false);
+  const dragStartY = useRef(0);
+  const dragStartHeight = useRef(0);
+
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    isDragging.current = true;
+    dragStartY.current = e.clientY;
+    dragStartHeight.current = videoHeight;
+    e.preventDefault();
+
+    const onMove = (ev: MouseEvent) => {
+      if (!isDragging.current) return;
+      const delta = ev.clientY - dragStartY.current;
+      setVideoHeight(Math.min(MAX_VIDEO_HEIGHT, Math.max(MIN_VIDEO_HEIGHT, dragStartHeight.current + delta)));
+    };
+    const onUp = () => {
+      isDragging.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [videoHeight, MAX_VIDEO_HEIGHT]);
 
   const status = video.data?.status;
 
@@ -160,12 +189,22 @@ function VideoPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
         <div>
-          <div className="relative overflow-hidden rounded-lg bg-black">
+          <div
+            className="relative overflow-hidden rounded-lg bg-black"
+            style={{ height: videoHeight }}
+          >
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-            <video ref={videoRef} src={mediaUrls.stream(id)} controls className="w-full" />
+            <video ref={videoRef} src={mediaUrls.stream(id)} controls className="h-full w-full object-contain" />
             {status === "analyzed" && (
               <VideoOverlay results={results} currentTime={time} showHistory={mode === "review"} />
             )}
+          </div>
+          <div
+            onMouseDown={onDragStart}
+            className="group flex h-3 cursor-ns-resize items-center justify-center"
+            title="Drag to resize video"
+          >
+            <div className="h-1 w-16 rounded-full bg-border transition-colors group-hover:bg-muted-foreground/50" />
           </div>
 
           {analyzing && (
