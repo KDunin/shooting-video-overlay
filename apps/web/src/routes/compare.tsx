@@ -1,10 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import type { StageResults } from "shared/results";
-import { ComparePane } from "#/components/compare-pane";
+import { ComparePaneVideo, ComparePaneTimeline } from "#/components/compare-pane";
 import { useVideoTime } from "#/hooks/use-video-time";
 import { fmtTime } from "#/lib/format";
 import { useVideos } from "#/lib/queries";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@kdunin/component-library";
 
 interface CompareSearch {
   a?: string;
@@ -35,6 +36,20 @@ function ComparePage() {
   const [resultsA, setResultsA] = useState<StageResults | null>(null);
   const [resultsB, setResultsB] = useState<StageResults | null>(null);
 
+  // Measure the timeline panel so WaveformTimeline fills it correctly.
+  const timelinePanelRef = useRef<HTMLDivElement>(null);
+  const [timelineH, setTimelineH] = useState(100);
+  useEffect(() => {
+    const el = timelinePanelRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      // subtract ~60px for stats grid + margins
+      setTimelineH(Math.max(40, entry.contentRect.height - 60));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const anchorA = resultsA?.anchorT ?? 0;
   const anchorB = resultsB?.anchorT ?? 0;
 
@@ -46,8 +61,7 @@ function ComparePage() {
   const setA = (id: string | undefined) => navigate({ search: (s) => ({ ...s, a: id || undefined }) });
   const setB = (id: string | undefined) => navigate({ search: (s) => ({ ...s, b: id || undefined }) });
 
-  // Synced, anchor-aligned playback. Each handler is self-limiting (state/epsilon checks)
-  // so mirroring one video onto the other cannot feed back into an infinite loop.
+  // Synced, anchor-aligned playback.
   useEffect(() => {
     const va = refA.current;
     const vb = refB.current;
@@ -81,7 +95,6 @@ function ComparePage() {
     vb.addEventListener("pause", ba.pause);
     vb.addEventListener("seeked", ba.seek);
 
-    // Correct drift while both play (the seeked event doesn't fire during normal playback).
     const drift = window.setInterval(() => {
       if (va.paused || vb.paused) return;
       const target = alignedFor(va, anchorA, anchorB);
@@ -100,8 +113,8 @@ function ComparePage() {
   }, [synced, anchorA, anchorB]);
 
   return (
-    <main className="page-wrap px-4 pb-8 pt-4">
-      <div className="mb-3 flex items-center justify-between">
+    <main className="page-wrap flex min-h-0 flex-1 flex-col px-4 pt-4">
+      <div className="mb-3 flex shrink-0 items-center justify-between">
         <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
           ← Library
         </Link>
@@ -129,23 +142,49 @@ function ComparePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div>
-          <VideoPicker label="A" value={a} options={videos.data ?? []} onChange={setA} exclude={b} />
-          <div className="mt-2">
-            <ComparePane videoId={a ?? null} videoRef={refA} currentTime={timeA.time} onResults={setResultsA} />
-          </div>
-        </div>
-        <div>
-          <VideoPicker label="B" value={b} options={videos.data ?? []} onChange={setB} exclude={a} />
-          <div className="mt-2">
-            <ComparePane videoId={b ?? null} videoRef={refB} currentTime={timeB.time} onResults={setResultsB} />
-          </div>
-        </div>
+      <div className="mb-2 grid shrink-0 grid-cols-2 gap-4">
+        <VideoPicker label="A" value={a} options={videos.data ?? []} onChange={setA} exclude={b} />
+        <VideoPicker label="B" value={b} options={videos.data ?? []} onChange={setB} exclude={a} />
       </div>
 
+      <ResizablePanelGroup orientation="vertical" className="flex-1" style={{ minHeight: 400 }}>
+        <ResizablePanel defaultSize={70} minSize={30}>
+          <div className="grid h-full grid-cols-2 gap-4 pb-2">
+            <ComparePaneVideo
+              videoId={a ?? null}
+              videoRef={refA}
+              currentTime={timeA.time}
+              onResults={setResultsA}
+            />
+            <ComparePaneVideo
+              videoId={b ?? null}
+              videoRef={refB}
+              currentTime={timeB.time}
+              onResults={setResultsB}
+            />
+          </div>
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize={30} minSize={20}>
+          <div ref={timelinePanelRef} className="grid h-full grid-cols-2 gap-4 pt-2">
+            <ComparePaneTimeline
+              videoId={a ?? null}
+              videoRef={refA}
+              currentTime={timeA.time}
+              height={timelineH}
+            />
+            <ComparePaneTimeline
+              videoId={b ?? null}
+              videoRef={refB}
+              currentTime={timeB.time}
+              height={timelineH}
+            />
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
+
       {resultsA && resultsB && (
-        <div className="mt-6">
+        <div className="mt-4 shrink-0 pb-4">
           <h2 className="mb-2 text-sm font-medium text-muted-foreground">Comparison</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <CompareMetric label="First shot" a={resultsA.firstShot} b={resultsB.firstShot} lowerIsBetter />
