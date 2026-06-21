@@ -88,21 +88,28 @@ export const videoRoutes = new Elysia({ name: "videos" })
       const type = contentTypeFor(row.originalName);
       const range = request.headers.get("range");
 
-      set.headers["accept-ranges"] = "bytes";
-      set.headers["content-type"] = type;
+      // Return explicit Response objects so Elysia's return-value serialisation
+      // cannot override content-type (files have no extension → octet-stream) or
+      // drop the 206 status on the range slice path.
+      const base = { "accept-ranges": "bytes", "content-type": type };
 
       if (!range) {
-        set.headers["content-length"] = String(size);
-        return file;
+        return new Response(file, {
+          headers: { ...base, "content-length": String(size) },
+        });
       }
 
       const [startStr, endStr] = range.replace("bytes=", "").split("-");
       const start = Number(startStr);
       const end = endStr ? Number(endStr) : size - 1;
-      set.status = 206;
-      set.headers["content-range"] = `bytes ${start}-${end}/${size}`;
-      set.headers["content-length"] = String(end - start + 1);
-      return file.slice(start, end + 1);
+      return new Response(file.slice(start, end + 1), {
+        status: 206,
+        headers: {
+          ...base,
+          "content-range": `bytes ${start}-${end}/${size}`,
+          "content-length": String(end - start + 1),
+        },
+      });
     },
     { params: t.Object({ id: t.String() }) },
   )
