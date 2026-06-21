@@ -57,14 +57,19 @@ export function WaveformTimeline({
     const el = scrollRef.current;
     if (!el) return;
     const handleWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey) return;
       e.preventDefault();
-      const rect = el.getBoundingClientRect();
-      const cursorOffsetX = e.clientX - rect.left;
-      const timeAtCursor = (cursorOffsetX + el.scrollLeft) / pps;
-      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-      pendingScrollRef.current = { timeAtCursor, cursorOffsetX };
-      setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * factor)));
+      if (e.ctrlKey) {
+        // Zoom toward cursor.
+        const rect = el.getBoundingClientRect();
+        const cursorOffsetX = e.clientX - rect.left;
+        const timeAtCursor = (cursorOffsetX + el.scrollLeft) / pps;
+        const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+        pendingScrollRef.current = { timeAtCursor, cursorOffsetX };
+        setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * factor)));
+      } else {
+        // Convert vertical scroll to horizontal pan.
+        el.scrollLeft += e.deltaY + e.deltaX;
+      }
     };
     el.addEventListener("wheel", handleWheel, { passive: false });
     return () => el.removeEventListener("wheel", handleWheel);
@@ -146,7 +151,7 @@ export function WaveformTimeline({
         <button className="rounded border px-2 py-0.5" onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * 1.5))}>
           +
         </button>
-        <span className="ml-2">ctrl+scroll to zoom · double-click to add a shot · drag a marker to nudge</span>
+        <span className="ml-2">scroll to pan · ctrl+scroll to zoom · double-click to add a shot · drag a marker to nudge</span>
       </div>
 
       <div
