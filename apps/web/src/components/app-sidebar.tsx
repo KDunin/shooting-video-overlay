@@ -52,13 +52,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <SidebarMenuButton
                 className="h-12"
                 isActive={pathname === item.url}
-                render={
-                  <a href={item.url}>
-                    {item.icon}
-                    {item.title}
-                  </a>
-                }
-              />
+                asChild
+              >
+                <a href={item.url}>
+                  {item.icon}
+                  {item.title}
+                </a>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
@@ -73,18 +73,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </div>
             </SidebarMenuItem>
             <SidebarMenuItem className="px-2">
-              <SidebarMenuButton
-                className="h-10"
-                render={
-                  <button
-                    type="button"
-                    onClick={() => signOutFn()}
-                  >
-                    <LogOutIcon />
-                    Sign out
-                  </button>
-                }
-              />
+              <SidebarMenuButton className="h-10" asChild>
+                <button type="button" onClick={() => signOutFn()}>
+                  <LogOutIcon />
+                  Sign out
+                </button>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>
