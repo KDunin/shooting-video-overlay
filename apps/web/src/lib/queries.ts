@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AnalyzeInput, CreateMarkerInput, Marker, UpdateMarkerInput } from "shared";
-import { videosApi } from "./videos-api";
+import { fetchPeaks, videosApi } from "./videos-api";
 
 export const qk = {
   videos: ["videos"] as const,
   video: (id: string) => ["videos", id] as const,
   markers: (id: string) => ["markers", id] as const,
+  peaks: (id: string) => ["peaks", id] as const,
   job: (id: string) => ["jobs", id] as const,
 };
 
@@ -60,6 +61,15 @@ export function useAnalysisJob(jobId: string | null) {
     },
   });
 }
+
+// --- Waveform peaks --------------------------------------------------------
+/** Load a video's waveform peaks once they exist; stays null while unavailable. */
+export const usePeaks = (videoId: string, hasPeaks: boolean | undefined) =>
+  useQuery({
+    queryKey: qk.peaks(videoId),
+    queryFn: () => fetchPeaks(videoId),
+    enabled: !!hasPeaks,
+  });
 
 // --- Markers (optimistic for instant recompute) ----------------------------
 export const useMarkers = (videoId: string) =>

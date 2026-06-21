@@ -11,12 +11,13 @@ import {
   SidebarRail,
 } from "@kdunin/component-library";
 import { useLocation, useRouteContext } from "@tanstack/react-router";
-import { HomeIcon, LogOutIcon, VideoIcon } from "lucide-react";
+import { Columns2Icon, HomeIcon, LogOutIcon, VideoIcon } from "lucide-react";
 import type * as React from "react";
 import { signOutFn } from "#/routes/__root";
 
 const navMain = [
   { title: "Library", url: "/", icon: <HomeIcon /> },
+  { title: "Compare", url: "/compare", icon: <Columns2Icon /> },
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {

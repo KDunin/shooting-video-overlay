@@ -17,7 +17,7 @@ import {
   useUpdateMarker,
   useVideo,
 } from "#/lib/queries";
-import { mediaUrls } from "#/lib/videos-api";
+import { fetchPeaks, mediaUrls } from "#/lib/videos-api";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@kdunin/component-library";
 
 export const Route = createFileRoute("/videos/$id")({ component: VideoPage });
@@ -286,14 +286,4 @@ function ModeButton({ active, onClick, children }: { active: boolean; onClick: (
       {children}
     </button>
   );
-}
-
-async function fetchPeaks(id: string) {
-  try {
-    const res = await fetch(mediaUrls.peaks(id));
-    if (!res.ok) return null;
-    return (await res.json()) as import("shared").WaveformPeaks;
-  } catch {
-    return null;
-  }
 }

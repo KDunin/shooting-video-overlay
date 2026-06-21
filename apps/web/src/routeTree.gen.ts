@@ -8,79 +8,115 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as CallbackRouteImport } from "./routes/callback";
-import { Route as IndexRouteImport } from "./routes/index";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as CompareRouteImport } from './routes/compare'
+import { Route as CallbackRouteImport } from './routes/callback'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as VideosIdRouteImport } from './routes/videos.$id'
 
+const CompareRoute = CompareRouteImport.update({
+  id: '/compare',
+  path: '/compare',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CallbackRoute = CallbackRouteImport.update({
-  id: "/callback",
-  path: "/callback",
+  id: '/callback',
+  path: '/callback',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
+const VideosIdRoute = VideosIdRouteImport.update({
+  id: '/videos/$id',
+  path: '/videos/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/callback": typeof CallbackRoute;
+  '/': typeof IndexRoute
+  '/callback': typeof CallbackRoute
+  '/compare': typeof CompareRoute
+  '/videos/$id': typeof VideosIdRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/callback": typeof CallbackRoute;
+  '/': typeof IndexRoute
+  '/callback': typeof CallbackRoute
+  '/compare': typeof CompareRoute
+  '/videos/$id': typeof VideosIdRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/callback": typeof CallbackRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/callback': typeof CallbackRoute
+  '/compare': typeof CompareRoute
+  '/videos/$id': typeof VideosIdRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/callback";
-  fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/callback";
-  id: "__root__" | "/" | "/callback";
-  fileRoutesById: FileRoutesById;
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths: '/' | '/callback' | '/compare' | '/videos/$id'
+  fileRoutesByTo: FileRoutesByTo
+  to: '/' | '/callback' | '/compare' | '/videos/$id'
+  id: '__root__' | '/' | '/callback' | '/compare' | '/videos/$id'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  CallbackRoute: typeof CallbackRoute;
+  IndexRoute: typeof IndexRoute
+  CallbackRoute: typeof CallbackRoute
+  CompareRoute: typeof CompareRoute
+  VideosIdRoute: typeof VideosIdRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/callback": {
-      id: "/callback";
-      path: "/callback";
-      fullPath: "/callback";
-      preLoaderRoute: typeof CallbackRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+    '/compare': {
+      id: '/compare'
+      path: '/compare'
+      fullPath: '/compare'
+      preLoaderRoute: typeof CompareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/callback': {
+      id: '/callback'
+      path: '/callback'
+      fullPath: '/callback'
+      preLoaderRoute: typeof CallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/videos/$id': {
+      id: '/videos/$id'
+      path: '/videos/$id'
+      fullPath: '/videos/$id'
+      preLoaderRoute: typeof VideosIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CallbackRoute: CallbackRoute,
-};
+  CompareRoute: CompareRoute,
+  VideosIdRoute: VideosIdRoute,
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from "./router.tsx";
-import type { createStart } from "@tanstack/react-start";
-declare module "@tanstack/react-start" {
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
   interface Register {
-    ssr: true;
-    router: Awaited<ReturnType<typeof getRouter>>;
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
   }
 }

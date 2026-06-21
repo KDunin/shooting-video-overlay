@@ -1,4 +1,4 @@
-import type { AnalyzeInput, CreateMarkerInput, Marker, UpdateMarkerInput, Video } from "shared";
+import type { AnalyzeInput, CreateMarkerInput, Marker, UpdateMarkerInput, Video, WaveformPeaks } from "shared";
 import { api } from "./api";
 
 /** Unwrap an Eden treaty response, throwing on transport/HTTP error. */
@@ -41,3 +41,14 @@ export const mediaUrls = {
   stream: (id: string) => `/api/videos/${id}/stream`,
   peaks: (id: string) => `/api/videos/${id}/peaks`,
 };
+
+/** Fetch a video's waveform peaks JSON; null if not available yet or on error. */
+export async function fetchPeaks(id: string): Promise<WaveformPeaks | null> {
+  try {
+    const res = await fetch(mediaUrls.peaks(id));
+    if (!res.ok) return null;
+    return (await res.json()) as WaveformPeaks;
+  } catch {
+    return null;
+  }
+}
