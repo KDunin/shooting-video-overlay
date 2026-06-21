@@ -379,7 +379,7 @@ function VideoPage() {
               </ResizablePanel>
               <ResizableHandle withHandle />
               <ResizablePanel defaultSize={32} minSize={15}>
-                <div ref={timelinePanelRef} className="flex h-full flex-col pt-2">
+                <div ref={timelinePanelRef} className="flex h-full min-w-0 flex-col overflow-hidden pt-2">
                   <WaveformTimeline
                     peaks={peaks}
                     duration={duration || video.data?.durationS || 0}

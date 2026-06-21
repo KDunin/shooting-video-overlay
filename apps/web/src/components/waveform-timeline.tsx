@@ -142,16 +142,16 @@ export function WaveformTimeline({
   }, [peaks, totalPx, height, pps]);
 
   return (
-    <div className="select-none">
-      <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-        <button className="rounded border px-2 py-0.5" onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z / 1.5))}>
+    <div className="flex min-w-0 flex-col overflow-hidden select-none">
+      <div className="mb-2 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+        <button className="shrink-0 rounded border px-2 py-0.5" onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z / 1.5))}>
           −
         </button>
-        <span>zoom {zoom.toFixed(1)}×</span>
-        <button className="rounded border px-2 py-0.5" onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * 1.5))}>
+        <span className="shrink-0">zoom {zoom.toFixed(1)}×</span>
+        <button className="shrink-0 rounded border px-2 py-0.5" onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * 1.5))}>
           +
         </button>
-        <span className="ml-2">scroll to pan · ctrl+scroll to zoom · double-click to add a shot · drag a marker to nudge</span>
+        <span className="ml-2 truncate">scroll to pan · ctrl+scroll to zoom · double-click to add shot · drag marker to nudge</span>
       </div>
 
       <div
