@@ -106,6 +106,10 @@ function VideoPage() {
         case "A":
           addMarker.mutate({ kind: "shot", tSeconds: el.currentTime });
           break;
+        case "b":
+        case "B":
+          addMarker.mutate({ kind: "beep", tSeconds: el.currentTime });
+          break;
         case "ArrowLeft":
           if (selected) {
             e.preventDefault();
@@ -208,7 +212,7 @@ function VideoPage() {
                     height={timelineH}
                   />
                   <p className="mt-2 shrink-0 text-xs text-muted-foreground">
-                    Shortcuts: <b>space</b> play · <b>A</b> add shot · <b>←/→</b> nudge · <b>I</b> ignore · <b>Del</b> remove · <b>[ ]</b> prev/next
+                    Shortcuts: <b>space</b> play · <b>A</b> add shot · <b>B</b> set timer · <b>←/→</b> nudge · <b>I</b> ignore · <b>Del</b> remove · <b>[ ]</b> prev/next
                   </p>
                 </div>
               </ResizablePanel>
@@ -249,6 +253,7 @@ function VideoPage() {
                 markers={markers}
                 results={results}
                 selectedId={selectedId}
+                currentTime={time}
                 onSelect={setSelectedId}
                 onSeek={seek}
                 onToggleIgnore={(m) => updateMarker.mutate({ id: m.id, patch: { isIgnored: !m.isIgnored } })}
@@ -256,6 +261,7 @@ function VideoPage() {
                   deleteMarker.mutate(mid);
                   if (mid === selectedId) setSelectedId(null);
                 }}
+                onAddBeep={(t) => addMarker.mutate({ kind: "beep", tSeconds: t })}
               />
             ) : (
               <ReviewStats results={results} />
