@@ -56,6 +56,22 @@ describe("computeResults", () => {
     expect(r.firstShot).toBeCloseTo(0.5);
   });
 
+  it("excludes shots before the beep from the count", () => {
+    const markers = [mk("beep", 2.0), mk("shot", 1.0), mk("shot", 3.0), mk("shot", 3.5)];
+    const r = computeResults(markers);
+    expect(r.shotCount).toBe(2);
+    expect(r.shots.map((s) => s.tSeconds)).toEqual([3.0, 3.5]);
+    expect(r.firstShot).toBeCloseTo(1.0); // 3.0 - 2.0
+  });
+
+  it("excludes shots before a manual anchor override", () => {
+    const markers = [mk("shot", 0.5), mk("beep", 1.0), mk("shot", 2.0)];
+    const r = computeResults(markers, { anchorOverride: 1.0 });
+    expect(r.anchorSource).toBe("manual");
+    expect(r.shotCount).toBe(1);
+    expect(r.shots[0].tSeconds).toBe(2.0);
+  });
+
   it("sorts out-of-order markers before computing", () => {
     const markers = [mk("shot", 2.9), mk("shot", 2.0), mk("beep", 1.0)];
     const r = computeResults(markers);

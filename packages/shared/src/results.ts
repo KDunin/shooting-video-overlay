@@ -48,11 +48,6 @@ const byTime = (a: { tSeconds: number }, b: { tSeconds: number }) => a.tSeconds 
 export function computeResults(markers: Marker[], options: ComputeOptions = {}): StageResults {
   const { anchorOverride = null, fallbackToFirstShot = true } = options;
 
-  const shotsAbs = markers
-    .filter((m) => m.kind === "shot" && !m.isIgnored)
-    .slice()
-    .sort(byTime);
-
   let anchorT: number | null = null;
   let anchorSource: AnchorSource = "none";
 
@@ -67,10 +62,18 @@ export function computeResults(markers: Marker[], options: ComputeOptions = {}):
     if (beep) {
       anchorT = beep.tSeconds;
       anchorSource = "beep";
-    } else if (fallbackToFirstShot && shotsAbs[0]) {
-      anchorT = shotsAbs[0].tSeconds;
-      anchorSource = "first-shot";
     }
+  }
+
+  // When an anchor is known (beep or manual), shots before it are pre-timer and excluded.
+  const shotsAbs = markers
+    .filter((m) => m.kind === "shot" && !m.isIgnored && (anchorT == null || m.tSeconds >= anchorT))
+    .slice()
+    .sort(byTime);
+
+  if (anchorT == null && fallbackToFirstShot && shotsAbs[0]) {
+    anchorT = shotsAbs[0].tSeconds;
+    anchorSource = "first-shot";
   }
 
   const base = anchorT ?? 0;

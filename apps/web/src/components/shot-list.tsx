@@ -33,18 +33,19 @@ export function ShotList({ markers, results, selectedId, onSelect, onSeek, onTog
         {shots.length === 0 && <div className="p-4 text-sm text-muted-foreground">No shots detected yet.</div>}
         {shots.map((m) => {
           const counted = splitById.get(m.id);
-          const lowConf = !m.isIgnored && m.confidence != null && m.confidence < LOW_CONFIDENCE;
+          const preTimer = !m.isIgnored && !counted;
+          const lowConf = !m.isIgnored && !preTimer && m.confidence != null && m.confidence < LOW_CONFIDENCE;
           return (
             <div
               key={m.id}
               className={`flex cursor-pointer items-center gap-2 border-b px-3 py-1.5 text-sm tabular-nums hover:bg-accent ${
                 m.id === selectedId ? "bg-accent" : ""
-              } ${m.isIgnored ? "opacity-50" : ""} ${lowConf ? "border-l-2 border-l-amber-500" : ""}`}
+              } ${m.isIgnored || preTimer ? "opacity-50" : ""} ${lowConf ? "border-l-2 border-l-amber-500" : ""}`}
               onClick={() => {
                 onSelect(m.id);
                 onSeek(m.tSeconds);
               }}
-              title={lowConf ? "Low confidence — verify this detection" : undefined}
+              title={preTimer ? "Before timer — not counted" : lowConf ? "Low confidence — verify this detection" : undefined}
             >
               <span className="w-6 text-muted-foreground">{counted ? `#${counted.index}` : "—"}</span>
               <span className="w-16">{counted ? fmtTime(counted.tRelative) : fmtTime(m.tSeconds)}</span>
