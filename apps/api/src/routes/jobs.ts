@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { eq } from "drizzle-orm";
-import { db } from "../db/client";
-import { analysisJobs } from "../db/schema";
+import { db } from "db";
+import { analysisJobs } from "db";
 import { toJob } from "../serializers";
 
 export const jobRoutes = new Elysia({ name: "jobs" }).get(

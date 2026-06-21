@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { defaultDetectionParams, type AnalyzeInput, type DetectionParams } from "shared";
-import { db } from "../db/client";
-import { analysisJobs, markers, videos } from "../db/schema";
+import { db } from "db";
+import { analysisJobs, markers, videos } from "db";
 
 /**
  * Enqueue an analysis run for a video. Re-running clears prior *auto* markers only —

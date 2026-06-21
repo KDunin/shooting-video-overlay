@@ -12,12 +12,6 @@ import {
 } from "drizzle-orm/pg-core";
 import type { DetectionParams } from "shared";
 
-/**
- * NOTE: the authoritative DDL lives in `./migrate.ts` (idempotent, run on boot). This Drizzle
- * schema mirrors it for typed queries — keep the two in sync. The Python analyzer reads/writes
- * the same tables via raw SQL (see apps/analyzer/src/db.py).
- */
-
 export const videos = pgTable("videos", {
   id: uuid("id").primaryKey().defaultRandom(),
   originalName: text("original_name").notNull(),

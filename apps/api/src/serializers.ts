@@ -1,5 +1,5 @@
 import type { AnalysisJob, Marker, Video } from "shared";
-import type { AnalysisJobRow, MarkerRow, VideoRow } from "./db/schema";
+import type { AnalysisJobRow, MarkerRow, VideoRow } from "db";
 
 const iso = (d: Date | string): string => (d instanceof Date ? d.toISOString() : new Date(d).toISOString());
 

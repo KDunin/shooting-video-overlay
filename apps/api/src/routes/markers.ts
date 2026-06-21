@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { eq } from "drizzle-orm";
-import { db } from "../db/client";
-import { markers } from "../db/schema";
+import { db } from "db";
+import { markers } from "db";
 import { toMarker } from "../serializers";
 
 export const markerRoutes = new Elysia({ name: "markers" })

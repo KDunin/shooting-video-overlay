@@ -23,14 +23,13 @@
       "dependencies": {
         "@elysiajs/eden": "^1.4.9",
         "@elysiajs/openapi": "^1.4.15",
+        "db": "workspace:*",
         "drizzle-orm": "^0.44.6",
         "elysia": "^1.4.28",
-        "postgres": "^3.4.7",
         "shared": "workspace:*",
       },
       "devDependencies": {
         "bun-types": "^1.3.14",
-        "drizzle-kit": "^0.31.5",
       },
     },
     "apps/web": {
@@ -76,6 +75,17 @@
         "vite": "^8.0.16",
         "vite-tsconfig-paths": "^6.1.1",
         "vitest": "^4.1.9",
+      },
+    },
+    "packages/db": {
+      "name": "db",
+      "dependencies": {
+        "drizzle-orm": "^0.44.6",
+        "shared": "workspace:*",
+      },
+      "devDependencies": {
+        "drizzle-kit": "^0.31.5",
+        "typescript": "^6.0.3",
       },
     },
     "packages/shared": {
@@ -821,6 +831,8 @@
     "date-fns": ["date-fns@4.4.0", "", {}, "sha512-+1UMbeh68lH1SegH83CGWwpb6OHHbpSgr3+s5Eww5M4CAgswBpoWS0AjTOfEJ33HiYKz1hdj/KTFprzXHmq/6w=="],
 
     "dayjs": ["dayjs@1.11.20", "", {}, "sha512-YbwwqR/uYpeoP4pu043q+LTDLFBLApUP6VxRihdfNTqu4ubqMlGDLd6ErXhEgsyvY0K6nCs7nggYumAN+9uEuQ=="],
+
+    "db": ["db@workspace:packages/db"],
 
     "db0": ["db0@0.3.4", "", { "peerDependencies": { "@electric-sql/pglite": "*", "@libsql/client": "*", "better-sqlite3": "*", "drizzle-orm": "*", "mysql2": "*", "sqlite3": "*" }, "optionalPeers": ["@electric-sql/pglite", "@libsql/client", "better-sqlite3", "drizzle-orm", "mysql2", "sqlite3"] }, "sha512-RiXXi4WaNzPTHEOu8UPQKMooIbqOEyqA1t7Z6MsdxSCeb8iUC9ko3LcmsLmeUt2SM5bctfArZKkRQggKZz7JNw=="],
 
