@@ -33,23 +33,20 @@ export function WaveformTimeline({
   onAdd,
   height = 120,
 }: Props) {
-  const outerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // viewW tracks the outer wrapper width, not the scroll container, so it is
-  // immune to the scroll container expanding due to wide inner content.
   const [viewW, setViewW] = useState(800);
   const [zoom, setZoom] = useState(1);
   const dur = peaks?.durationS || duration || 1;
 
-  const basePps = viewW / dur;
-  const pps = basePps * zoom;
+  const pps = (viewW / dur) * zoom;
   const totalPx = Math.max(viewW, dur * pps);
 
   const pendingScrollRef = useRef<{ timeAtCursor: number; cursorOffsetX: number } | null>(null);
 
-  // Keep draw inputs in a ref so the scroll handler can call paint without
-  // going stale between React renders.
+  // Keep draw inputs in a ref so the scroll handler can read them without
+  // closing over stale values between React renders.
   const paintStateRef = useRef({ peaks, pps, viewW, height });
   paintStateRef.current = { peaks, pps, viewW, height };
 
@@ -61,7 +58,6 @@ export function WaveformTimeline({
     const sl = el.scrollLeft;
     const dpr = window.devicePixelRatio || 1;
 
-    // Only resize the backing store when dimensions actually change.
     const needW = Math.round(vw * dpr);
     const needH = Math.round(h * dpr);
     if (canvas.width !== needW || canvas.height !== needH) {
@@ -97,12 +93,8 @@ export function WaveformTimeline({
     ctx.stroke();
   }, []);
 
-  // Repaint whenever data, zoom or size change.
-  useEffect(() => {
-    paintCanvas();
-  }, [paintCanvas, peaks, pps, viewW, height]);
+  useEffect(() => { paintCanvas(); }, [paintCanvas, peaks, pps, viewW, height]);
 
-  // Repaint on scroll (pan changes the visible slice).
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -131,7 +123,6 @@ export function WaveformTimeline({
     return () => el.removeEventListener("wheel", handleWheel);
   }, [pps]);
 
-  // After zoom + pps settle, re-anchor scroll so the time under the cursor stays fixed.
   useEffect(() => {
     const pending = pendingScrollRef.current;
     if (!pending) return;
@@ -152,10 +143,11 @@ export function WaveformTimeline({
     [pps, dur],
   );
 
-  // Observe the OUTER wrapper for width — it is never affected by inner scroll
-  // content width, so viewW stays stable regardless of zoom level.
+  // Observe the wrapper div for width. The wrapper never has content-driven
+  // width (it's a plain flex item with stretch alignment), so viewW is stable
+  // and cannot feed back into totalPx/pps to cause a growth loop.
   useLayoutEffect(() => {
-    const el = outerRef.current;
+    const el = wrapperRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => setViewW(el.clientWidth));
     ro.observe(el);
@@ -164,7 +156,7 @@ export function WaveformTimeline({
   }, []);
 
   return (
-    <div ref={outerRef} className="flex min-w-0 flex-col overflow-hidden select-none">
+    <div className="flex min-w-0 flex-col overflow-hidden select-none">
       <div className="mb-2 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
         <button className="shrink-0 rounded border px-2 py-0.5" onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z / 1.5))}>
           −
@@ -177,46 +169,52 @@ export function WaveformTimeline({
       </div>
 
       {/*
-        The scroll container is explicitly width-clamped so its clientWidth never
-        feeds back into pps/totalPx calculations (viewW comes from outerRef instead).
-        The canvas is sticky so it never contributes to the scrollable width.
+        wrapperRef is the layout anchor — its width comes purely from flex-stretch
+        and never from its own content. The canvas and scroll layer are both
+        absolutely inset so they never participate in content-driven layout.
       */}
       <div
-        ref={scrollRef}
-        className="relative w-full overflow-x-auto overflow-y-hidden rounded-md border bg-card"
+        ref={wrapperRef}
+        className="relative rounded-md border bg-card overflow-hidden"
         style={{ height }}
-        onClick={(e) => {
-          if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.bg) onSeek(xToTime(e.clientX));
-        }}
-        onDoubleClick={(e) => onAdd(xToTime(e.clientX))}
       >
-        <div className="relative" style={{ width: totalPx, height }}>
-          <canvas
-            ref={canvasRef}
-            data-bg="1"
-            className="absolute top-0 left-0 pointer-events-none"
-            style={{ position: "sticky", left: 0, width: viewW, height }}
-          />
+        {/* Canvas: always viewport-sized, only draws the visible slice. */}
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 pointer-events-none"
+          style={{ width: viewW, height }}
+        />
 
-          {markers.map((m) => (
-            <MarkerEl
-              key={m.id}
-              marker={m}
-              x={m.tSeconds * pps}
-              height={height}
-              selected={m.id === selectedId}
-              onSelect={() => onSelect(m.id)}
-              xToTime={xToTime}
-              onNudge={(t) => onNudge(m.id, t)}
-              onNudgeStart={onNudgeStart ? (originalT) => onNudgeStart(m.id, originalT) : undefined}
-              onNudgeEnd={onNudgeEnd ? () => onNudgeEnd(m.id) : undefined}
+        {/* Transparent scroll layer: creates the scrollable width for markers/playhead. */}
+        <div
+          ref={scrollRef}
+          className="absolute inset-0 overflow-x-auto overflow-y-hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.bg) onSeek(xToTime(e.clientX));
+          }}
+          onDoubleClick={(e) => onAdd(xToTime(e.clientX))}
+        >
+          <div className="relative" style={{ width: totalPx, height }}>
+            {markers.map((m) => (
+              <MarkerEl
+                key={m.id}
+                marker={m}
+                x={m.tSeconds * pps}
+                height={height}
+                selected={m.id === selectedId}
+                onSelect={() => onSelect(m.id)}
+                xToTime={xToTime}
+                onNudge={(t) => onNudge(m.id, t)}
+                onNudgeStart={onNudgeStart ? (originalT) => onNudgeStart(m.id, originalT) : undefined}
+                onNudgeEnd={onNudgeEnd ? () => onNudgeEnd(m.id) : undefined}
+              />
+            ))}
+
+            <div
+              className="pointer-events-none absolute top-0 z-20 w-0.5 bg-red-500"
+              style={{ left: currentTime * pps, height }}
             />
-          ))}
-
-          <div
-            className="pointer-events-none absolute top-0 z-20 w-0.5 bg-red-500"
-            style={{ left: currentTime * pps, height }}
-          />
+          </div>
         </div>
       </div>
     </div>
