@@ -145,8 +145,8 @@ function VideoPage() {
   const showResizable = status === "analyzed" && mode === "edit";
 
   return (
-    <main className="page-wrap px-4 pb-8 pt-4">
-      <div className="mb-3 flex items-center justify-between">
+    <main className="page-wrap flex min-h-0 flex-1 flex-col px-4 pt-4">
+      <div className="mb-3 flex shrink-0 items-center justify-between">
         <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
           ← Library
         </Link>
@@ -174,10 +174,10 @@ function VideoPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
-        <div>
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="flex min-h-0 flex-col">
           {showResizable ? (
-            <ResizablePanelGroup direction="vertical" className="h-[calc(100dvh-8rem)] min-h-0">
+            <ResizablePanelGroup direction="vertical" className="flex-1">
               <ResizablePanel defaultSize={68} minSize={20}>
                 <div className="relative h-full overflow-hidden rounded-lg bg-black">
                   {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -207,7 +207,7 @@ function VideoPage() {
               </ResizablePanel>
             </ResizablePanelGroup>
           ) : (
-            <>
+            <div className="flex flex-col gap-3 pb-8">
               <div className="relative max-h-[60vh] overflow-hidden rounded-lg bg-black">
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                 <video ref={videoRef} src={mediaUrls.stream(id)} controls className="w-full" />
@@ -217,23 +217,23 @@ function VideoPage() {
               </div>
 
               {analyzing && (
-                <div className="mt-3 rounded-md border border-blue-500/40 bg-blue-500/5 p-3 text-sm">
+                <div className="rounded-md border border-blue-500/40 bg-blue-500/5 p-3 text-sm">
                   Analyzing audio — detecting the timer beep and shots. You can scrub the video while this runs.
                 </div>
               )}
               {status === "error" && (
-                <div className="mt-3 rounded-md border border-red-500/40 bg-red-500/5 p-3 text-sm">
+                <div className="rounded-md border border-red-500/40 bg-red-500/5 p-3 text-sm">
                   Analysis failed. Try re-running detection.
                 </div>
               )}
 
-              {status === "analyzed" && mode === "review" && <div className="mt-4"><SummaryCard results={results} /></div>}
-            </>
+              {status === "analyzed" && mode === "review" && <SummaryCard results={results} />}
+            </div>
           )}
         </div>
 
         {status === "analyzed" && (
-          <aside className="rounded-lg border bg-card lg:h-[calc(100dvh-8rem)]">
+          <aside className="min-h-0 overflow-hidden rounded-lg border bg-card">
             {mode === "edit" ? (
               <ShotList
                 markers={markers}
