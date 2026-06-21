@@ -1,4 +1,4 @@
-# Shooting Video Overlay
+# ShotLens
 
 Self-hosted video analysis for IPSC / practical-shooting training (à la *Shooters Global*).
 Upload a stage video → the audio is analysed to auto-detect the **timer beep** and every **shot** →
@@ -58,7 +58,7 @@ Analyzer (separate process / venv, needs ffmpeg on PATH):
 ```bash
 python3 -m venv .venv-analyzer
 .venv-analyzer/bin/pip install -e "apps/analyzer[dev]"
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/guns \
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/ipsclab \
 MEDIA_DIR=./.media \
   .venv-analyzer/bin/python -m src.worker      # run from apps/analyzer
 ```

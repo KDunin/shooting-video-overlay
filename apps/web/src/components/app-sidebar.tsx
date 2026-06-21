@@ -38,7 +38,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <div className="flex items-center h-12 gap-2 p-2 overflow-hidden group-data-[collapsible=icon]:p-0 transition-[width,height,padding]">
               <VideoIcon className="size-8 shrink-0 text-primary" />
-              <span className="truncate font-semibold">Shooting Overlay</span>
+              <span className="truncate font-semibold">ShotLens</span>
             </div>
           </SidebarMenuItem>
         </SidebarMenu>
