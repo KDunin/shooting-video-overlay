@@ -15,19 +15,6 @@ services:
       timeout: 5s
       retries: 10
 
-  migrate:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-      args:
-        INFISICAL_CLI_VERSION: ${INFISICAL_CLI_VERSION:-0.43.60}
-    environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@postgres:5432/shotlens}
-    entrypoint: ["bun", "run", "db:migrate"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   api:
     build:
       context: .
@@ -45,8 +32,8 @@ services:
     volumes:
       - media:/media
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
 
   analyzer:
     build:
@@ -59,8 +46,8 @@ services:
     volumes:
       - media:/media
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
 
   web:
     build:
