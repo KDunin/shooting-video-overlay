@@ -17,6 +17,27 @@ services:
       timeout: 5s
       retries: 10
 
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      args:
+        NPM_TOKEN: ${NPM_TOKEN:-}
+        INFISICAL_CLI_VERSION: ${INFISICAL_CLI_VERSION:-0.43.60}
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@postgres:5432/shotlens}
+      INFISICAL_MACHINE_CLIENT_ID: ${INFISICAL_MACHINE_CLIENT_ID:-}
+      INFISICAL_MACHINE_CLIENT_SECRET: ${INFISICAL_MACHINE_CLIENT_SECRET:-}
+      INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
+      INFISICAL_SECRET_ENV: ${INFISICAL_SECRET_ENV:-dev}
+      INFISICAL_API_URL: ${INFISICAL_API_URL:-}
+    command: ["bun", "run", "src/db/migrate.ts"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api:
     build:
       context: .
@@ -39,8 +60,8 @@ services:
     volumes:
       - media:/media
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   analyzer:
     build:
@@ -55,8 +76,8 @@ services:
     volumes:
       - media:/media
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   web:
     build:

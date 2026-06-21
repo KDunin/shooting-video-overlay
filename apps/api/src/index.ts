@@ -1,8 +1,6 @@
 import { Elysia, t } from "elysia";
 import { openapi } from "@elysiajs/openapi";
 import { config } from "./config";
-import { sql } from "./db/client";
-import { ensureSchema } from "./db/migrate";
 import { Logger } from "./lib/logger";
 import { jobRoutes } from "./routes/jobs";
 import { markerRoutes } from "./routes/markers";
@@ -12,8 +10,7 @@ import { ensureMediaDirs } from "./services/storage";
 const logger = new Logger();
 
 await ensureMediaDirs();
-await ensureSchema(sql);
-logger.log("media dirs + schema ready");
+logger.log("media dirs ready");
 
 const app = new Elysia()
   .decorate("logger", logger)
