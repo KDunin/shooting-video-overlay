@@ -38,6 +38,11 @@ function ComparePage() {
   const anchorA = resultsA?.anchorT ?? 0;
   const anchorB = resultsB?.anchorT ?? 0;
 
+  const jumpToTimer = () => {
+    if (refA.current && resultsA) refA.current.currentTime = anchorA;
+    if (refB.current && resultsB) refB.current.currentTime = anchorB;
+  };
+
   const setA = (id: string | undefined) => navigate({ search: (s) => ({ ...s, a: id || undefined }) });
   const setB = (id: string | undefined) => navigate({ search: (s) => ({ ...s, b: id || undefined }) });
 
@@ -83,9 +88,6 @@ function ComparePage() {
       if (Math.abs(vb.currentTime - target) > DRIFT) vb.currentTime = target;
     }, 400);
 
-    // Lock B onto A immediately when sync is enabled.
-    vb.currentTime = alignedFor(va, anchorA, anchorB);
-
     return () => {
       window.clearInterval(drift);
       va.removeEventListener("play", ab.play);
@@ -103,10 +105,28 @@ function ComparePage() {
         <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
           ← Library
         </Link>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={synced} onChange={(e) => setSynced(e.target.checked)} />
-          Sync playback (anchor-aligned)
-        </label>
+        <div className="flex items-center gap-3">
+          {resultsA && resultsB && (
+            <button
+              className="rounded-md border px-3 py-1 text-sm hover:bg-accent"
+              onClick={jumpToTimer}
+              title="Seek both videos to their timer beep"
+            >
+              ⏮ Timer
+            </button>
+          )}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={synced}
+              onChange={(e) => {
+                setSynced(e.target.checked);
+                if (e.target.checked) jumpToTimer();
+              }}
+            />
+            Sync by timer
+          </label>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
