@@ -58,7 +58,7 @@ Analyzer (separate process / venv, needs ffmpeg on PATH):
 ```bash
 python3 -m venv .venv-analyzer
 .venv-analyzer/bin/pip install -e "apps/analyzer[dev]"
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/ipsclab \
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/shotlens \
 MEDIA_DIR=./.media \
   .venv-analyzer/bin/python -m src.worker      # run from apps/analyzer
 ```

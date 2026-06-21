@@ -10,7 +10,7 @@ const env = (key: string, fallback?: string): string => {
 
 export const config = {
   port: Number(env("API_PORT", "3001")),
-  databaseUrl: env("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/ipsclab"),
+  databaseUrl: env("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/shotlens"),
   /** Root of the shared media volume; subfolders created on demand. */
   mediaDir: env("MEDIA_DIR", "./.media"),
   /** Hard cap on upload size (bytes). Default 2 GiB. */

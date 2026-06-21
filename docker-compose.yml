@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-ipsclab}
+      POSTGRES_DB: ${POSTGRES_DB:-shotlens}
     ports:
       - "5432:5432"
     volumes:
@@ -29,7 +29,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@postgres:5432/ipsclab}
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@postgres:5432/shotlens}
       MEDIA_DIR: /media
       INFISICAL_MACHINE_CLIENT_ID: ${INFISICAL_MACHINE_CLIENT_ID:-}
       INFISICAL_MACHINE_CLIENT_SECRET: ${INFISICAL_MACHINE_CLIENT_SECRET:-}
@@ -50,7 +50,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@postgres:5432/ipsclab}
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@postgres:5432/shotlens}
       MEDIA_DIR: /media
     volumes:
       - media:/media
