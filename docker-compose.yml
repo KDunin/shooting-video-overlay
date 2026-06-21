@@ -28,7 +28,7 @@ services:
       - .env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@postgres:5432/shotlens}
-    entrypoint: ["bun", "run", "--cwd", "/app/packages/db", "db:migrate"]
+    entrypoint: ["bun", "run", "db:migrate"]
     depends_on:
       postgres:
         condition: service_healthy

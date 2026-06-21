@@ -14,7 +14,9 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check"
+    "fmt:check": "oxfmt --check",
+    "db:migrate": "bun run --cwd packages/db db:migrate",
+    "db:generate": "bun run --cwd packages/db db:generate"
   },
   "dependencies": {
     "@kdunin/component-library": "^3.0.0"
