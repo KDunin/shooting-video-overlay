@@ -165,7 +165,7 @@ export function WaveformTimeline({
         <button className="shrink-0 rounded border px-2 py-0.5" onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * 1.5))}>
           +
         </button>
-        <span className="ml-2 truncate">scroll to pan · ctrl+scroll to zoom · double-click to add shot · drag marker to nudge</span>
+        <span className="ml-2 truncate">scroll to pan · ctrl+scroll to zoom · double-click to add shot · drag marker to nudge · drag playhead to seek</span>
       </div>
 
       {/*
@@ -210,13 +210,37 @@ export function WaveformTimeline({
               />
             ))}
 
-            <div
-              className="pointer-events-none absolute top-0 z-20 w-0.5 bg-red-500"
-              style={{ left: currentTime * pps, height }}
-            />
+            <Playhead x={currentTime * pps} height={height} xToTime={xToTime} onSeek={onSeek} />
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Playhead({ x, height, xToTime, onSeek }: { x: number; height: number; xToTime: (clientX: number) => number; onSeek: (t: number) => void }) {
+  const onPointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!(e.buttons & 1)) return;
+    e.stopPropagation();
+    onSeek(xToTime(e.clientX));
+  };
+
+  return (
+    <div
+      className="absolute top-0 z-20 -ml-2 w-4 cursor-ew-resize"
+      style={{ left: x, height }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      title="Playhead — drag to seek"
+    >
+      {/* line */}
+      <div className="absolute inset-x-0 top-0 mx-auto w-0.5 bg-red-500" style={{ height: "100%" }} />
+      {/* handle triangle */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0" style={{ borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "8px solid rgb(239 68 68)" }} />
     </div>
   );
 }
