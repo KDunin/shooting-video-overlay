@@ -160,18 +160,29 @@ function ComparePage() {
       <ResizablePanelGroup orientation="vertical" className="flex-1" style={{ minHeight: 400 }}>
         <ResizablePanel defaultSize={70} minSize={30}>
           <div className="grid h-full grid-cols-2 gap-4 pb-2">
-            <ComparePaneVideo
-              videoId={a ?? null}
-              videoRef={callbackA}
-              currentTime={timeA.time}
-              onResults={setResultsA}
-            />
-            <ComparePaneVideo
-              videoId={b ?? null}
-              videoRef={callbackB}
-              currentTime={timeB.time}
-              onResults={setResultsB}
-            />
+            {[
+              { side: "a", id: a, ref: callbackA, time: timeA.time, onResults: setResultsA },
+              { side: "b", id: b, ref: callbackB, time: timeB.time, onResults: setResultsB },
+            ].map(({ side, id, ref, time, onResults }) => {
+              const video = videos.data?.find((v) => v.id === id);
+              return (
+                <div key={side} className="flex min-h-0 flex-col">
+                  {video && (
+                    <p className="mb-1 shrink-0 truncate text-xs font-medium text-muted-foreground" title={video.originalName}>
+                      {videoLabel(video)}
+                    </p>
+                  )}
+                  <div className="min-h-0 flex-1">
+                    <ComparePaneVideo
+                      videoId={id ?? null}
+                      videoRef={ref}
+                      currentTime={time}
+                      onResults={onResults}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </ResizablePanel>
         <ResizableHandle withHandle />
@@ -216,6 +227,22 @@ function ComparePage() {
   );
 }
 
+type VideoOption = {
+  id: string;
+  originalName: string;
+  status: string;
+  matchName: string | null;
+  shooterName: string | null;
+  stageName: string | null;
+};
+
+function videoLabel(v: Omit<VideoOption, "id" | "status">): string {
+  const parts = [v.shooterName, v.stageName].filter(Boolean) as string[];
+  if (parts.length === 0 && !v.matchName) return v.originalName;
+  const main = parts.join(" – ");
+  return v.matchName ? (main ? `${main} · ${v.matchName}` : v.matchName) : main;
+}
+
 function VideoPicker({
   label,
   value,
@@ -225,7 +252,7 @@ function VideoPicker({
 }: {
   label: string;
   value: string | undefined;
-  options: { id: string; originalName: string; status: string }[];
+  options: VideoOption[];
   onChange: (id: string | undefined) => void;
   exclude: string | undefined;
 }) {
@@ -242,7 +269,7 @@ function VideoPicker({
           .filter((v) => v.id !== exclude)
           .map((v) => (
             <option key={v.id} value={v.id}>
-              {v.originalName}
+              {videoLabel(v)}
               {v.status !== "analyzed" ? ` (${v.status})` : ""}
             </option>
           ))}
