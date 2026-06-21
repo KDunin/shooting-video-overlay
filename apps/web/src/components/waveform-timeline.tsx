@@ -49,6 +49,37 @@ export function WaveformTimeline({
   const pps = basePps * zoom;
   const totalPx = Math.max(viewW, dur * pps);
 
+  // Pending scroll anchor: after a zoom triggered by wheel, re-anchor so the
+  // time under the cursor stays fixed.
+  const pendingScrollRef = useRef<{ timeAtCursor: number; cursorOffsetX: number } | null>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const cursorOffsetX = e.clientX - rect.left;
+      const timeAtCursor = (cursorOffsetX + el.scrollLeft) / pps;
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      pendingScrollRef.current = { timeAtCursor, cursorOffsetX };
+      setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * factor)));
+    };
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, [pps]);
+
+  // After zoom + pps settle, apply the scroll correction.
+  useEffect(() => {
+    const pending = pendingScrollRef.current;
+    if (!pending) return;
+    pendingScrollRef.current = null;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollLeft = pending.timeAtCursor * pps - pending.cursorOffsetX;
+  }, [pps]);
+
   const xToTime = useCallback(
     (clientX: number) => {
       const el = scrollRef.current;
@@ -115,7 +146,7 @@ export function WaveformTimeline({
         <button className="rounded border px-2 py-0.5" onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * 1.5))}>
           +
         </button>
-        <span className="ml-2">double-click to add a shot · drag a marker to nudge</span>
+        <span className="ml-2">ctrl+scroll to zoom · double-click to add a shot · drag a marker to nudge</span>
       </div>
 
       <div
