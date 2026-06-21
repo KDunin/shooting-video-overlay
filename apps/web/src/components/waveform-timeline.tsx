@@ -19,11 +19,6 @@ interface Props {
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 40;
 
-/**
- * Scrollable waveform editor. Peaks are painted on a canvas (redrawn only when data/zoom/size
- * change); markers and the playhead are positioned DOM elements so hit-testing and dragging are
- * precise. Background click seeks; double-click adds a shot; drag a marker to nudge it.
- */
 export function WaveformTimeline({
   peaks,
   duration,
@@ -44,14 +39,63 @@ export function WaveformTimeline({
   const [zoom, setZoom] = useState(1);
   const dur = peaks?.durationS || duration || 1;
 
-  // Base fit: whole clip across the viewport; zoom multiplies from there.
   const basePps = viewW / dur;
   const pps = basePps * zoom;
   const totalPx = Math.max(viewW, dur * pps);
 
-  // Pending scroll anchor: after a zoom triggered by wheel, re-anchor so the
-  // time under the cursor stays fixed.
   const pendingScrollRef = useRef<{ timeAtCursor: number; cursorOffsetX: number } | null>(null);
+
+  // Draw only the visible slice of peaks — canvas stays viewport-wide (sticky),
+  // avoiding giant canvas allocations that blank out above ~16 k px.
+  const drawCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    const el = scrollRef.current;
+    if (!canvas || !el) return;
+    const sl = el.scrollLeft;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = viewW * dpr;
+    canvas.height = height * dpr;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, viewW, height);
+
+    const mid = height / 2;
+    ctx.strokeStyle = "rgba(120,140,170,0.65)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    if (peaks && peaks.peaks.length) {
+      const n = peaks.peaks.length;
+      for (let i = 0; i < n; i++) {
+        const t = i / peaks.pointsPerSecond;
+        const x = Math.round(t * pps - sl) + 0.5;
+        if (x < -1 || x > viewW + 1) continue;
+        const h = peaks.peaks[i]! * (mid - 2);
+        ctx.moveTo(x, mid - h);
+        ctx.lineTo(x, mid + h);
+      }
+    }
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(120,140,170,0.2)";
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    ctx.lineTo(viewW, mid);
+    ctx.stroke();
+  }, [peaks, viewW, height, pps]);
+
+  // Redraw when data, zoom, or viewport size change.
+  useEffect(() => {
+    drawCanvas();
+  }, [drawCanvas]);
+
+  // Redraw on scroll (pan).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => drawCanvas();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [drawCanvas]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -59,7 +103,6 @@ export function WaveformTimeline({
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       if (e.ctrlKey) {
-        // Zoom toward cursor.
         const rect = el.getBoundingClientRect();
         const cursorOffsetX = e.clientX - rect.left;
         const timeAtCursor = (cursorOffsetX + el.scrollLeft) / pps;
@@ -67,7 +110,6 @@ export function WaveformTimeline({
         pendingScrollRef.current = { timeAtCursor, cursorOffsetX };
         setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * factor)));
       } else {
-        // Convert vertical scroll to horizontal pan.
         el.scrollLeft += e.deltaY + e.deltaX;
       }
     };
@@ -75,7 +117,7 @@ export function WaveformTimeline({
     return () => el.removeEventListener("wheel", handleWheel);
   }, [pps]);
 
-  // After zoom + pps settle, apply the scroll correction.
+  // After zoom + pps settle, re-anchor scroll so the time under the cursor stays fixed.
   useEffect(() => {
     const pending = pendingScrollRef.current;
     if (!pending) return;
@@ -96,7 +138,6 @@ export function WaveformTimeline({
     [pps, dur],
   );
 
-  // Track viewport width.
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -105,41 +146,6 @@ export function WaveformTimeline({
     setViewW(el.clientWidth);
     return () => ro.disconnect();
   }, []);
-
-  // Paint peaks.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = totalPx * dpr;
-    canvas.height = height * dpr;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, totalPx, height);
-
-    const mid = height / 2;
-    ctx.strokeStyle = "rgba(120,140,170,0.65)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    if (peaks && peaks.peaks.length) {
-      const n = peaks.peaks.length;
-      for (let i = 0; i < n; i++) {
-        const t = i / peaks.pointsPerSecond;
-        const x = Math.round(t * pps) + 0.5;
-        const h = peaks.peaks[i]! * (mid - 2);
-        ctx.moveTo(x, mid - h);
-        ctx.lineTo(x, mid + h);
-      }
-    }
-    ctx.stroke();
-    // Centre line.
-    ctx.strokeStyle = "rgba(120,140,170,0.2)";
-    ctx.beginPath();
-    ctx.moveTo(0, mid);
-    ctx.lineTo(totalPx, mid);
-    ctx.stroke();
-  }, [peaks, totalPx, height, pps]);
 
   return (
     <div className="flex min-w-0 flex-col overflow-hidden select-none">
@@ -163,12 +169,13 @@ export function WaveformTimeline({
         }}
         onDoubleClick={(e) => onAdd(xToTime(e.clientX))}
       >
+        {/* Spacer div creates the scrollable width; canvas is sticky so it never exceeds viewW. */}
         <div className="relative" style={{ width: totalPx, height }}>
           <canvas
             ref={canvasRef}
             data-bg="1"
-            className="absolute inset-0 h-full w-full"
-            style={{ width: totalPx, height }}
+            className="absolute top-0 left-0"
+            style={{ position: "sticky", left: 0, width: viewW, height }}
           />
 
           {markers.map((m) => (
@@ -245,8 +252,8 @@ function MarkerEl({
       onPointerUp={onPointerUp}
       title={`${marker.kind} @ ${marker.tSeconds.toFixed(3)}s${dim ? " (ignored)" : ""}`}
     >
-      <div className={`mx-auto h-full w-0.5 ${color} ${dim ? "opacity-40" : ""} ${selected ? "ring-2 ring-white" : ""}`} />
-      <div className={`mx-auto -mt-1 h-2 w-2 rounded-full ${color} ${dim ? "opacity-40" : ""}`} />
+      <div className={`absolute inset-x-0 top-0 mx-auto w-0.5 ${color} ${dim ? "opacity-40" : ""} ${selected ? "ring-2 ring-white" : ""}`} style={{ height: "100%" }} />
+      <div className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-2 w-2 rounded-full ${color} ${dim ? "opacity-40" : ""}`} />
     </div>
   );
 }
